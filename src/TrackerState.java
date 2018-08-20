@@ -20,13 +20,15 @@ public class TrackerState implements ITrackerState, Serializable {
     }
 
     /* Implementation of addPlayer */
-    public void addPlayer(Player p){
+    public ITrackerState addPlayer(Player p){
         players.add(p);
+        return getInfo();
     }
 
     /* Implementation of removePlayer */
-    public void removePlayer(Player p) {
+    public ITrackerState removePlayer(Player p) {
         players.remove(p);
+        return getInfo();
     }
 
     /* Implementation of getInfo */
