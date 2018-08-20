@@ -47,7 +47,7 @@ public class Tracker {
                 registry.bind("Tracker", state);
                 System.err.println("Tracker ready at " + ip + ":" + port);
             } catch(Exception ee){
-                System.err.println("Tracker exception: " + ee.toString());
+                System.err.println("Tracker exception: " + ee.getMessage());
                 ee.printStackTrace();
             }
         } catch(Exception e) {

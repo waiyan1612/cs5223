@@ -10,12 +10,17 @@ public class GUI extends Frame {
     private TextField commandTextField;
     private JLabel infoLabel;
 
-    public GUI (int rows, int cols, List<Integer> treasurePositions, Map<String, Game.PlayerState> playerStates, String playerName) {
+    public GUI (GameState gameState, String playerName) {
+
+        int rows = gameState.N;
+        int cols = gameState.N;
+        List<Integer> treasurePositions = gameState.treasurePositions;
+        Map<String, GameState.PlayerState> playerStates = gameState.playerStates;
 
         // Info
         Panel legend = new Panel(new FlowLayout());
         StringBuilder sb = new StringBuilder("<html><body>Info of players<br>");
-        for (Map.Entry<String, Game.PlayerState> entry : playerStates.entrySet()) {
+        for (Map.Entry<String, GameState.PlayerState> entry : playerStates.entrySet()) {
             sb.append(entry.getKey()).append(": ").append(entry.getValue().score).append("<br>");
         }
         sb.append("</body></html>");
@@ -35,7 +40,7 @@ public class GUI extends Frame {
                 if(treasurePositions.contains(pos)) {
                     cell.append("*<br>");
                 }
-                for (Map.Entry<String, Game.PlayerState> entry : playerStates.entrySet()) {
+                for (Map.Entry<String, GameState.PlayerState> entry : playerStates.entrySet()) {
                     if(entry.getValue().position == pos) {
                         cell.append(entry.getKey()).append("<br>");
                         if(entry.getKey().equals(playerName)) {
