@@ -1,9 +1,9 @@
 import java.io.Serializable;
 import java.util.*;
 
-public class GameState implements IGameState, Serializable {
-    public int N;
-    public int K;
+public class GameState implements Serializable  {
+    public final int N;
+    public final int K;
     public List<Integer> treasurePositions;
     public Map<String, PlayerState> playerStates;
 
@@ -14,31 +14,17 @@ public class GameState implements IGameState, Serializable {
         this.playerStates = new HashMap<>();
     }
 
-    public GameState(int N, int K ,List<Integer> treasurePositions, Map<String, PlayerState> playerStates) {
-        this.N = N;
-        this.K = K;
-        this.treasurePositions = treasurePositions;
-        this.playerStates = playerStates;
-    }
-
-    public IGameState getInfo() {
-        return new GameState(N, K, treasurePositions, playerStates);
-    }
-
-    public IGameState removeAndAddTreasure(int pos) {
+    public void removeAndAddTreasure(int pos) {
         treasurePositions.remove(Integer.valueOf(pos));Random r = new Random();
         treasurePositions.add(r.nextInt(N*N));
-        return getInfo();
     }
 
-    public IGameState initPlayerState(String playerName) {
-        playerStates.put(playerName, new PlayerState());
-        return getInfo();
+    public void initPlayerState(String playerName) {
+        playerStates.put(playerName, new PlayerState(randValidPosition()));
     }
 
-    public IGameState updatePlayerState(String playerName, GameState.PlayerState state) {
+    public void updatePlayerState(String playerName, GameState.PlayerState state) {
         playerStates.put(playerName, state);
-        return getInfo();
     }
 
     @Override
@@ -59,12 +45,26 @@ public class GameState implements IGameState, Serializable {
         return positions;
     }
 
+    private int randValidPosition() {
+        Set<Integer> disallowedPositions = new HashSet<>(treasurePositions);
+        for (Map.Entry<String, GameState.PlayerState> entry : playerStates.entrySet()) {
+            disallowedPositions.add(entry.getValue().position);
+        }
+        Random r = new Random();
+        int bound = N * N;
+        int randomInt = r.nextInt(bound);
+        while(disallowedPositions.contains(randomInt)) {
+            randomInt = r.nextInt(bound);
+        }
+        return randomInt;
+    }
+
     public static class PlayerState implements Serializable {
         public int position;
         public int score;
 
-        public PlayerState() {
-            position = 0;
+        public PlayerState(int pos) {
+            position = pos;
             score = 0;
         }
 
