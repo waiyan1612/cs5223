@@ -1,15 +1,27 @@
-import java.io.Serializable;
-import java.rmi.AlreadyBoundException;
+import java.beans.PropertyChangeSupport;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
+import java.util.List;
 
 public class Game {
 
     public static final boolean DEBUG = true;
+
+    private GameState gameState;
+    private Player player;
+    private GUI gui;
+    private PropertyChangeSupport observable;
+
+    public Game (Player p, GameState gs) {
+        player = p;
+        gameState = gs;
+        gui = new GUI(gameState, player.name);
+        observable = new PropertyChangeSupport(this);
+        observable.addPropertyChangeListener(gui);
+    }
 
     public static void main(String[] args) {
 
@@ -55,71 +67,105 @@ public class Game {
         // get location of players and treasures from other players
         List<Player> players = tracker.players;
 
-        IGameState state = null;
+        GameState gameState = null;
         if(players.size() == 1) {
             System.out.println("Primary Server");
-            try {
-                GameState obj = new GameState(N, K);
-                state = (IGameState) UnicastRemoteObject.exportObject(obj, 0);
-                registry.bind("GameStatePrimary", state);
-                System.err.println("GameStatePrimary ready at " + ip + ":" + port);
-            } catch(AlreadyBoundException ae) {
-                try {
-                    System.err.println("GameStatePrimary is already registered. Rebinding ...");
-                    registry.unbind("GameStatePrimary");
-                    registry.bind("GameStatePrimary", state);
-                    System.err.println("GameStatePrimary ready at " + ip + ":" + port);
-                } catch(Exception ee){
-                    System.err.println("GameStatePrimary exception: " + ee.getMessage());
-                    ee.printStackTrace();
-                }
-            } catch(Exception e) {
-                e.printStackTrace();
-            }
+            gameState = new GameState(N, K);
         } else if(players.size() == 2) {
             System.out.println("Backup Server");
-            try {
-                state = (IGameState) registry.lookup("GameStatePrimary");
-                registry.bind("GameStateSecondary", state);
-            } catch (RemoteException | NotBoundException e) {
-                e.printStackTrace();
-            } catch (AlreadyBoundException e) {
-                try {
-                    System.err.println("GameStateSecondary is already registered. Rebinding ...");
-                    registry.unbind("GameStateSecondary");
-                    registry.bind("GameStateSecondary", state);
-                    System.err.println("GameStateSecondary ready at " + ip + ":" + port);
-                } catch(Exception ee){
-                    System.err.println("GameStateSecondary exception: " + ee.getMessage());
-                    ee.printStackTrace();
-                }
-            }
+            //TODO: GET GAME STATE FROM PRIMARY AND STORE IT
+        } else {
+            //TODO: GET GAME STATE FROM PRIMARY OR BACKUP SERVER
         }
 
-        GameState gs = null;
-        try {
-            if(state == null) {
-                try {
-                    state = (IGameState) registry.lookup("GameStatePrimary");
-                    gs = (GameState) state.initPlayerState(playerName);
-                } catch (RemoteException | NotBoundException e1) {
-                    System.err.println("Unable to fetch GameStatePrimary. Trying GameStateSecondary ...");
-                    try {
-                        state = (IGameState) registry.lookup("GameStateSecondary");
-                        gs = (GameState) state.initPlayerState(playerName);
-                    } catch (RemoteException | NotBoundException e2) {
-                        System.err.println("Unable to fetch GameStatePrimary: " + e1.getMessage());
-                        System.err.println("Unable to fetch GameStateSecondary: " + e2.getMessage());
-                        System.exit(-1);
-                    }
-                }
-            }
-            gs = (GameState) state.initPlayerState(playerName);
-        } catch (RemoteException e) {
-            e.printStackTrace();
+        //TODO: REMOVE THIS AFTER P2P TRANSFER OF GAME STATE IS AVAILABLE
+        if(gameState == null) {
+            gameState = new GameState(N, K);
         }
-        System.out.println(gs);
-        new GUI(gs, playerName);
+
+        //FIXME: Need to consider the case when the same position is chosen by multiple nodes (stale game gameState from primary server)
+        gameState.initPlayerState(player.name);
+
+        System.out.println(gameState);
+        System.out.println("========================  Instructions ======================== ");
+        System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+
+        // Start Game
+        //FIXME: Current GUI is slow since we have NxN JLabels each of which is a html document.
+        //FIXME: LineBreak <br> might not be necessary (currently used to break player, treasure and cell number)
+        Game g = new Game(player, gameState);
+
+        Scanner input = new Scanner(System.in);
+        while (input.hasNext()) {
+            String in = input.nextLine();
+            switch(in) {
+                case "0":
+                    g.updateGameState();
+                    break;
+                case "1":
+                    g.move(-1);
+                    g.updateGameState();
+                    break;
+                case "2":
+                    g.move(N);
+                    g.updateGameState();
+                    break;
+                case "3":
+                    g.move(1);
+                    g.updateGameState();
+                    break;
+                case "4":
+                    g.move(-N);
+                    g.updateGameState();
+                    break;
+                case "9":
+                    g.gameState.playerStates.remove(g.player.name);
+                    g.resolveGameState(g.gameState);
+                    try {
+                        ITrackerState state = (ITrackerState) registry.lookup("Tracker");
+                        state.removePlayer(g.player);
+                    } catch (RemoteException | NotBoundException e) {
+                        System.err.println("Failed to unregister player from Tracker.");
+                    }
+                    System.exit(0);
+                    break;
+                default:
+                    System.out.println("Invalid Input!");
+                    System.out.println("========================  Instructions ======================== ");
+                    System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+            }
+        }
+    }
+
+    //TODO: Add border constraints and update score if target has treasure (what if treasure is already claimed by someone else??)
+    private void move(int diff) {
+        GameState.PlayerState ps = gameState.playerStates.get(player.name);
+        ps.position += diff;
+
+        boolean hasTreasure = false;
+        if(hasTreasure)
+            ps.score++;
+    }
+
+    /**
+     * This should send the gameState to the server and receive the updated gameState back.
+     */
+    private void updateGameState(){
+        //TODO: CHANGE THE FUNCTION TO HTTP/SOCKET TO SEND/RECEIVE GAME STATE FROM PRIMARY SERVER
+        GameState resolvedGameState = resolveGameState(gameState);
+        // this will not fire when gameState has not changed.
+        observable.firePropertyChange("gameState", null, resolvedGameState);
+        gameState = resolvedGameState;
+    }
+
+    /**
+     * Only for Primary/Backup Server, receive a GameState and return a GameState back to the caller
+     * @return resolvedGameState
+     */
+    private GameState resolveGameState(GameState gs) {
+        //TODO: DO MUTEX AND RESOLVE
+        gameState = gs;
+        return gameState;
     }
 
     private static String createID() {
