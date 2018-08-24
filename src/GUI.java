@@ -6,19 +6,20 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.Map;
 
-public class GUI extends Frame implements PropertyChangeListener {
+
+public class GUI extends JFrame implements PropertyChangeListener {
     private String playerName;
-    private JLabel[] mapGrids;
+    private JLabel[][] mapGrids;
+    
     private JLabel infoLabel;
     private GameState gameState;
 
     private void updateInfoLabel(){
-        StringBuilder sb = new StringBuilder("<html><body>Scores<br>");
+        StringBuilder sb = new StringBuilder("Scores for ");
         for (Map.Entry<String, GameState.PlayerState> entry : gameState.playerStates.entrySet()) {
-            sb.append(entry.getKey()).append(": ").append(entry.getValue().score).append("<br>");
+            sb.append(entry.getKey()).append(" : ").append(entry.getValue().score);
         }
-        sb.append("</body></html>");
-        infoLabel.setText(sb.toString());
+    	infoLabel.setText(sb.toString());
     }
 
     private void updateMapGrids() {
@@ -28,21 +29,22 @@ public class GUI extends Frame implements PropertyChangeListener {
             for(int j=0; j<cols; j++) {
                 int pos = i*rows + j;
                 Color borderColor = Color.black;
-                StringBuilder cell = new StringBuilder("<html><body>").append(pos).append("<br>");
+                Color backgroundColor = Color.white;
+                StringBuilder cell = new StringBuilder("");
                 if(gameState.treasurePositions.contains(pos)) {
-                    cell.append("*<br>");
+                    backgroundColor = Color.yellow;
                 }
                 for (Map.Entry<String, GameState.PlayerState> entry : gameState.playerStates.entrySet()) {
                     if(entry.getValue().position == pos) {
-                        cell.append(entry.getKey()).append("<br>");
+                    	cell.append(entry.getKey());
                         if(entry.getKey().equals(playerName)) {
-                            borderColor = Color.RED;
+                        	backgroundColor = Color.green;
                         }
                     }
                 }
-                cell.append("</body></html>");
-                mapGrids[pos].setText(cell.toString());
-                mapGrids[pos].setBorder(BorderFactory.createLineBorder(borderColor));
+            	mapGrids[i][j].setText(cell.toString());
+                mapGrids[i][j].setBackground(backgroundColor);
+            	mapGrids[i][j].setBorder(BorderFactory.createLineBorder(borderColor));
             }
         }
     }
@@ -56,6 +58,7 @@ public class GUI extends Frame implements PropertyChangeListener {
 
         // Info
         Panel legend = new Panel(new FlowLayout());
+//        
         infoLabel = new JLabel();
         updateInfoLabel();
         infoLabel.setBorder(BorderFactory.createLineBorder(Color.black));
@@ -64,14 +67,22 @@ public class GUI extends Frame implements PropertyChangeListener {
 
         // Map
         Panel map = new Panel(new GridLayout(rows, cols));
-        mapGrids = new JLabel[rows*cols];
+        mapGrids = new JLabel[rows][cols];
         for(int i=0; i<rows; i++) {
             for (int j = 0; j < cols; j++) {
-                mapGrids[i*rows + j] = new JLabel();
-                map.add(mapGrids[i*rows + j]);
+            	mapGrids[i][j] = new JLabel();
+            	mapGrids[i][j].setOpaque(true);
+            	map.add(mapGrids[i][j]);
+				
             }
         }
         updateMapGrids();
+        for(int i=0; i<rows; i++) {
+            for (int j = 0; j < cols; j++) {
+            	map.add(mapGrids[i][j]);
+				
+            }
+        }
 
         setLayout(new BorderLayout());
         add(map, BorderLayout.CENTER);
