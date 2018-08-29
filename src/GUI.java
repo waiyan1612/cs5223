@@ -10,7 +10,6 @@ import java.util.Map;
 public class GUI extends JFrame implements PropertyChangeListener {
     private String playerName;
     private JLabel[][] mapGrids;
-    
     private JLabel infoLabel;
     private GameState gameState;
 
@@ -28,9 +27,8 @@ public class GUI extends JFrame implements PropertyChangeListener {
         for(int i=0; i<rows; i++) {
             for(int j=0; j<cols; j++) {
                 int pos = i*rows + j;
-                Color borderColor = Color.black;
                 Color backgroundColor = Color.white;
-                StringBuilder cell = new StringBuilder("");
+                StringBuilder cell = new StringBuilder();
                 if(gameState.treasurePositions.contains(pos)) {
                     backgroundColor = Color.yellow;
                 }
@@ -40,17 +38,18 @@ public class GUI extends JFrame implements PropertyChangeListener {
                         if(entry.getKey().equals(playerName)) {
                         	backgroundColor = Color.green;
                         }
+                        // can break because we cannot have two players in the same cell
+                        break;
                     }
                 }
             	mapGrids[i][j].setText(cell.toString());
                 mapGrids[i][j].setBackground(backgroundColor);
-            	mapGrids[i][j].setBorder(BorderFactory.createLineBorder(borderColor));
             }
         }
     }
 
     public GUI (GameState gameState, String playerName) {
-
+        setVisible(true);
         int rows = gameState.N;
         int cols = gameState.N;
         this.playerName = playerName;
@@ -58,7 +57,6 @@ public class GUI extends JFrame implements PropertyChangeListener {
 
         // Info
         Panel legend = new Panel(new FlowLayout());
-//        
         infoLabel = new JLabel();
         updateInfoLabel();
         infoLabel.setBorder(BorderFactory.createLineBorder(Color.black));
@@ -72,25 +70,16 @@ public class GUI extends JFrame implements PropertyChangeListener {
             for (int j = 0; j < cols; j++) {
             	mapGrids[i][j] = new JLabel();
             	mapGrids[i][j].setOpaque(true);
+                mapGrids[i][j].setBorder(BorderFactory.createLineBorder(Color.black));
             	map.add(mapGrids[i][j]);
-				
             }
         }
         updateMapGrids();
-        for(int i=0; i<rows; i++) {
-            for (int j = 0; j < cols; j++) {
-            	map.add(mapGrids[i][j]);
-				
-            }
-        }
-
         setLayout(new BorderLayout());
         add(map, BorderLayout.CENTER);
         add(legend, BorderLayout.WEST);
-
         setTitle(playerName);
-        setSize(1024, 768);
-        setVisible(true);
+        setSize(600, 400);
 
         addWindowListener(new WindowAdapter() {
             @Override
