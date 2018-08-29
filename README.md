@@ -28,15 +28,15 @@ java Tracker 1099 10 10
 ```
 
 ### Start Game
-When DEBUG=TRUE
 ```
 java Game
 ```
 or
 ```
-java Game playerName
-```
-When DEBUG=FALSE
-```
 java Game trackerIP trackerPort playerName
+```
+
+### Stress Test
+```
+java StressTest 127.0.0.1 1099 "java Game"
 ```

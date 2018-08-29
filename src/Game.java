@@ -8,8 +8,6 @@ import java.util.List;
 
 public class Game {
 
-    public static final boolean DEBUG = true;
-
     private GameState gameState;
     private Player player;
     private GUI gui;
@@ -29,15 +27,14 @@ public class Game {
         int port = 0;
         String playerName;
 
-        if(!DEBUG) {
-            if (args.length < 3) {
-                throw new IllegalArgumentException("You must specify trackerIP, trackerPort and playerName.");
-            }
+        if (args.length == 3) {
             ip = args[0];
             port = Integer.parseInt(args[1]);
             playerName = args[2];
+        } else if (args.length == 0) {
+            playerName = createID();
         } else {
-            playerName = args.length > 0 ? args[0] : createID();
+            throw new IllegalArgumentException("You must specify trackerIP, trackerPort and playerName.");
         }
 
         Player player = new Player(playerName, ip, port);
@@ -90,10 +87,12 @@ public class Game {
         System.out.println("========================  Instructions ======================== ");
         System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
 
+        // The assignment promises 2 seconds gap between successive crashes.
+        // StressTest gives 3 seconds just to be nice.
+        long start = System.currentTimeMillis();
         // Start Game
-        //FIXME: Current GUI is slow since we have NxN JLabels each of which is a html document.
-        //FIXME: LineBreak <br> might not be necessary (currently used to break player, treasure and cell number)
         Game g = new Game(player, gameState);
+        System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
 
         Scanner input = new Scanner(System.in);
         while (input.hasNext()) {

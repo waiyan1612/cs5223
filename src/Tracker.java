@@ -12,7 +12,7 @@ public class Tracker {
     public static void main(String[] args){
 
         int port = 1099;
-        int N = 10;
+        int N = 15;
         int K = 10;
 
         if(args.length != 0) {
