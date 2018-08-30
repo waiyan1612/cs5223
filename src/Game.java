@@ -118,7 +118,7 @@ public class Game {
                     g.updateGameState();
                     break;
                 case "9":
-                    g.gameState.playerStates.remove(g.player.name);
+                    g.gameState.getPlayerStates().remove(g.player.name);
                     g.resolveGameState(g.gameState);
                     try {
                         ITrackerState state = (ITrackerState) registry.lookup("Tracker");
@@ -136,14 +136,22 @@ public class Game {
         }
     }
 
-    //TODO: Add border constraints and update score if target has treasure (what if treasure is already claimed by someone else??)
+    //TODO: Update score if target has treasure (what if treasure is already claimed by someone else??)
     private void move(int diff) {
-        GameState.PlayerState ps = gameState.playerStates.get(player.name);
+        GameState.PlayerState ps = gameState.getPlayerStates().get(player.name);
+        if ((diff == -1  && ps.position % gameState.N == 0) || // left
+            (diff == gameState.N && ps.position >= gameState.N*(gameState.N-1)) || // bottom
+            (diff == 1 && ps.position % gameState.N == gameState.N-1) || // right
+            (diff == -gameState.N && ps.position < gameState.N)) {  // top
+            return;
+        }
         ps.position += diff;
 
-        boolean hasTreasure = false;
-        if(hasTreasure)
+
+        if(gameState.getTreasurePositions().contains(ps.position)) {
+            gameState.removeTreasures(ps.position);
             ps.score++;
+        }
     }
 
     /**
@@ -163,6 +171,7 @@ public class Game {
      */
     private GameState resolveGameState(GameState gs) {
         //TODO: DO MUTEX AND RESOLVE
+        gs.createTreasures();
         gameState = gs;
         return gameState;
     }

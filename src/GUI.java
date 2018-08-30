@@ -15,7 +15,7 @@ public class GUI extends JFrame implements PropertyChangeListener {
 
     private void updateInfoLabel(){
         StringBuilder sb = new StringBuilder("Scores for ");
-        for (Map.Entry<String, GameState.PlayerState> entry : gameState.playerStates.entrySet()) {
+        for (Map.Entry<String, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
             sb.append(entry.getKey()).append(" : ").append(entry.getValue().score);
         }
     	infoLabel.setText(sb.toString());
@@ -29,10 +29,10 @@ public class GUI extends JFrame implements PropertyChangeListener {
                 int pos = i*rows + j;
                 Color backgroundColor = Color.white;
                 StringBuilder cell = new StringBuilder();
-                if(gameState.treasurePositions.contains(pos)) {
+                if(gameState.getTreasurePositions().contains(pos)) {
                     backgroundColor = Color.yellow;
                 }
-                for (Map.Entry<String, GameState.PlayerState> entry : gameState.playerStates.entrySet()) {
+                for (Map.Entry<String, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
                     if(entry.getValue().position == pos) {
                     	cell.append(entry.getKey());
                         if(entry.getKey().equals(playerName)) {

@@ -4,19 +4,13 @@ import java.util.*;
 public class GameState implements Serializable  {
     public final int N;
     public final int K;
-    public List<Integer> treasurePositions;
-    public Map<String, PlayerState> playerStates;
+    private Set<Integer> treasurePositions = new HashSet<>();
+    private Map<String, PlayerState> playerStates = new HashMap<>();
 
     public GameState(int N, int K) {
         this.N = N;
         this.K = K;
-        this.treasurePositions = initTreasures();
-        this.playerStates = new HashMap<>();
-    }
-
-    public void removeAndAddTreasure(int pos) {
-        treasurePositions.remove(Integer.valueOf(pos));Random r = new Random();
-        treasurePositions.add(r.nextInt(N*N));
+        createTreasures();
     }
 
     public void initPlayerState(String playerName) {
@@ -25,6 +19,14 @@ public class GameState implements Serializable  {
 
     public void updatePlayerState(String playerName, GameState.PlayerState state) {
         playerStates.put(playerName, state);
+    }
+
+    public Set<Integer> getTreasurePositions(){
+        return treasurePositions;
+    }
+
+    public Map<String, PlayerState> getPlayerStates(){
+        return playerStates;
     }
 
     @Override
@@ -36,13 +38,15 @@ public class GameState implements Serializable  {
         return sb.toString();
     }
 
-    private List<Integer> initTreasures(){
+    public void createTreasures(){
         Random r = new Random();
-        List<Integer> positions = new ArrayList<>();
-        for(int i=0; i<K; i++) {
-            positions.add(r.nextInt(N*N));
+        while(treasurePositions.size() < K) {
+            treasurePositions.add(r.nextInt(N*N));
         }
-        return positions;
+    }
+
+    public void removeTreasures(int position){
+        treasurePositions.remove(position);
     }
 
     private int randValidPosition() {
