@@ -2,17 +2,30 @@ import java.io.Serializable;
 
 public class Player implements Serializable {
     public String name;
-    public String ip;
     public int port;
 
-    public Player(String name, String ip, int port) {
+    public Player(String name) {
         this.name = name;
-        this.ip = ip;
+    }
+
+    public void setPort(int port) {
         this.port = port;
     }
 
     @Override
     public String toString(){
-        return name + "@" + ip + ":" + port;
+        return name + "@localhost:" + port;
+    }
+
+    @Override
+    public boolean equals(Object that) {
+        if (that == this) {
+            return true;
+        }
+        if (!(that instanceof Player)) {
+            return false;
+        }
+        Player player = (Player) that;
+        return player.name.equals(this.name) && player.port == this.port;
     }
 }

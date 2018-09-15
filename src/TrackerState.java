@@ -6,34 +6,34 @@ public class TrackerState implements ITrackerState, Serializable {
     public int N;
     public int K;
     public List<Player> players;
+    private int lastPortUsed;
 
     public TrackerState (int N, int K){
         this.N = N;
         this.K = K;
         this.players = new ArrayList<>();
+        this.lastPortUsed = 9200;
     }
 
-    public TrackerState(int N, int K, List<Player> players) {
+    public TrackerState(int N, int K, List<Player> players, int lastPortUsed) {
         this.N = N;
         this.K = K;
         this.players = players;
+        this.lastPortUsed = lastPortUsed;
     }
 
-    /* Implementation of addPlayer */
-    public ITrackerState addPlayer(Player p){
+    public void addPlayer(Player p){
+        p.setPort(lastPortUsed);
         players.add(p);
-        return getInfo();
+        lastPortUsed ++;
     }
 
-    /* Implementation of removePlayer */
-    public ITrackerState removePlayer(Player p) {
+    public void removePlayer(Player p) {
         players.remove(p);
-        return getInfo();
     }
 
-    /* Implementation of getInfo */
-    public ITrackerState getInfo() {
-        return new TrackerState(N, K, players);
+    public ITrackerState getReadOnlyCopy() {
+        return new TrackerState(N, K, players, lastPortUsed);
     }
 
     @Override

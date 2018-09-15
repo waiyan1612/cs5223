@@ -1,35 +1,36 @@
 import java.beans.PropertyChangeSupport;
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 import java.util.List;
 
 public class Game {
 
-    private GameState gameState;
     private Player player;
-    private GUI gui;
     private PropertyChangeSupport observable;
 
-    public Game (Player p, GameState gs) {
+    public Game(Player p, GameState gs) {
         player = p;
-        gameState = gs;
-        gui = new GUI(gameState, player.name);
+        GUI gui = new GUI(gs, player.name);
         observable = new PropertyChangeSupport(this);
         observable.addPropertyChangeListener(gui);
     }
 
     public static void main(String[] args) {
 
-        String ip = null;
-        int port = 0;
+        String trackerIp = null;
+        int trackerPort = 0;
         String playerName;
 
         if (args.length == 3) {
-            ip = args[0];
-            port = Integer.parseInt(args[1]);
+            trackerIp = args[0];
+            trackerPort = Integer.parseInt(args[1]);
             playerName = args[2];
         } else if (args.length == 0) {
             playerName = createID();
@@ -37,17 +38,16 @@ public class Game {
             throw new IllegalArgumentException("You must specify trackerIP, trackerPort and playerName.");
         }
 
-        Player player = new Player(playerName, ip, port);
-        Registry registry = null;
+        Player player = new Player(playerName);
+        Registry registry;
+        ITrackerState trackerStub = null;
         TrackerState tracker = null;
         try {
-            registry = LocateRegistry.getRegistry(ip, port);
-            ITrackerState state = (ITrackerState) registry.lookup("Tracker");
-
-            // Adding new player
-            System.out.println("Adding player: " + player.toString());
-            tracker = (TrackerState) state.addPlayer(player);
-            if(tracker == null) {
+            registry = LocateRegistry.getRegistry(trackerIp, trackerPort);
+            trackerStub = (ITrackerState) registry.lookup("Tracker");
+            trackerStub.addPlayer(player);
+            tracker = (TrackerState) trackerStub.getReadOnlyCopy();
+            if (tracker == null) {
                 System.err.println("Failed to retrieve information from tracker");
                 System.exit(-1);
             }
@@ -63,122 +63,149 @@ public class Game {
 
         // get location of players and treasures from other players
         List<Player> players = tracker.players;
+        for (Player p : players) {
+            if (p.name.equals(player.name)) {
+                player.setPort(p.port);
+                break;
+            }
+        }
+        //TODO: Recreate game state if primary goes down
+        //TODO: Ping every 0.5s to detect crashed nodes
+        //                if (!ping(players.get(0).port)) {
+        //                    System.out.println(players.get(0) + " has crashed!");
+        //                    trackerStub.removePlayer(players.get(0));
+        //                }
+        IGameState stub = null;
+        try {
+            if (players.size() == 1) {
+                System.out.println("Primary Server");
+                GameState gameState = new GameState(N, K);
+                gameState.setPrimary(player.port);
 
-        GameState gameState = null;
-        if(players.size() == 1) {
-            System.out.println("Primary Server");
-            gameState = new GameState(N, K);
-        } else if(players.size() == 2) {
-            System.out.println("Backup Server");
-            //TODO: GET GAME STATE FROM PRIMARY AND STORE IT
-        } else {
-            //TODO: GET GAME STATE FROM PRIMARY OR BACKUP SERVER
+                // Creating GameState Stub and serving it via Listener Thread
+                ServerSocket serverSocket = new ServerSocket(player.port);
+                stub = (IGameState) UnicastRemoteObject.exportObject(gameState, 0);
+                ListenerThread listener = new ListenerThread(serverSocket, stub);
+                listener.start();
+
+            } else if (players.size() == 2) {
+                System.out.println("Backup Server");
+                stub = getStub(players.get(0).port);
+                stub.setSecondary(player.port);
+
+                // Creating GameState Stub and serving it via Listener Thread
+                ServerSocket serverSocket = new ServerSocket(player.port);
+                ListenerThread listener = new ListenerThread(serverSocket, stub);
+                listener.start();
+            } else {
+                stub = getStub(players.get(0).port);
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            System.exit(-1);
         }
 
-        //TODO: REMOVE THIS AFTER P2P TRANSFER OF GAME STATE IS AVAILABLE
-        if(gameState == null) {
-            gameState = new GameState(N, K);
+        GameState gs = null;
+        try {
+            stub.initPlayerState(player.name);
+            gs = (GameState) stub.getReadOnlyCopy();
+            System.out.println();
+            System.out.println("========================  Instructions ======================== ");
+            System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+        } catch (RemoteException e) {
+            System.err.println("Failed to init player state");
+            System.exit(-1);
         }
-
-        //FIXME: Need to consider the case when the same position is chosen by multiple nodes (stale game gameState from primary server)
-        gameState.initPlayerState(player.name);
-
-        System.out.println(gameState);
-        System.out.println("========================  Instructions ======================== ");
-        System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
 
         // The assignment promises 2 seconds gap between successive crashes.
         // StressTest gives 3 seconds just to be nice.
         long start = System.currentTimeMillis();
-        // Start Game
-        Game g = new Game(player, gameState);
+        Game g = new Game(player, gs);
         System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
 
         Scanner input = new Scanner(System.in);
         while (input.hasNext()) {
-            String in = input.nextLine();
-            switch(in) {
-                case "0":
-                    g.updateGameState();
-                    break;
-                case "1":
-                    g.move(-1);
-                    g.updateGameState();
-                    break;
-                case "2":
-                    g.move(N);
-                    g.updateGameState();
-                    break;
-                case "3":
-                    g.move(1);
-                    g.updateGameState();
-                    break;
-                case "4":
-                    g.move(-N);
-                    g.updateGameState();
-                    break;
-                case "9":
-                    g.gameState.getPlayerStates().remove(g.player.name);
-                    g.resolveGameState(g.gameState);
-                    try {
-                        ITrackerState state = (ITrackerState) registry.lookup("Tracker");
-                        state.removePlayer(g.player);
-                    } catch (RemoteException | NotBoundException e) {
-                        System.err.println("Failed to unregister player from Tracker.");
-                    }
-                    System.exit(0);
-                    break;
-                default:
-                    System.out.println("Invalid Input!");
-                    System.out.println("========================  Instructions ======================== ");
-                    System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+            try {
+                String in = input.nextLine();
+                switch (in) {
+                    case "0":
+                        g.updateGameState(stub);
+                        break;
+                    case "1":
+                        stub.move(player, -1);
+                        g.updateGameState(stub);
+                        break;
+                    case "2":
+                        stub.move(player, N);
+                        g.updateGameState(stub);
+                        break;
+                    case "3":
+                        stub.move(player, 1);
+                        g.updateGameState(stub);
+                        break;
+                    case "4":
+                        stub.move(player, -N);
+                        g.updateGameState(stub);
+                        break;
+                    case "9":
+                        stub.getPlayerStates().remove(g.player.name);
+                        trackerStub.removePlayer(g.player);
+                        System.exit(0);
+                        break;
+                    default:
+                        System.out.println("Invalid Input!");
+                        System.out.println("========================  Instructions ======================== ");
+                        System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+                }
+            } catch (RemoteException e) {
+                System.err.println("Failed to fetch GameState: " + e.getMessage());
             }
         }
     }
 
-    //TODO: Update score if target has treasure (what if treasure is already claimed by someone else??)
-    private void move(int diff) {
-        GameState.PlayerState ps = gameState.getPlayerStates().get(player.name);
-        if ((diff == -1  && ps.position % gameState.N == 0) || // left
-            (diff == gameState.N && ps.position >= gameState.N*(gameState.N-1)) || // bottom
-            (diff == 1 && ps.position % gameState.N == gameState.N-1) || // right
-            (diff == -gameState.N && ps.position < gameState.N)) {  // top
-            return;
-        }
-        ps.position += diff;
-
-
-        if(gameState.getTreasurePositions().contains(ps.position)) {
-            gameState.removeTreasures(ps.position);
-            ps.score++;
-        }
-    }
-
-    /**
-     * This should send the gameState to the server and receive the updated gameState back.
-     */
-    private void updateGameState(){
-        //TODO: CHANGE THE FUNCTION TO HTTP/SOCKET TO SEND/RECEIVE GAME STATE FROM PRIMARY SERVER
-        GameState resolvedGameState = resolveGameState(gameState);
-        // this will not fire when gameState has not changed.
-        observable.firePropertyChange("gameState", null, resolvedGameState);
-        gameState = resolvedGameState;
-    }
-
-    /**
-     * Only for Primary/Backup Server, receive a GameState and return a GameState back to the caller
-     * @return resolvedGameState
-     */
-    private GameState resolveGameState(GameState gs) {
-        //TODO: DO MUTEX AND RESOLVE
-        gs.createTreasures();
-        gameState = gs;
-        return gameState;
+    private void updateGameState(IGameState stub) throws RemoteException {
+        GameState gs = (GameState) stub.getReadOnlyCopy();
+        observable.firePropertyChange("gameState", null, gs);
     }
 
     private static String createID() {
         Random r = new Random();
         int randomInt = r.nextInt(26) + 1;
-        return new StringBuilder(2).append((char) (97 + randomInt / 26)).append((char) (97 + randomInt % 26)).toString();
+        return "" + (char) (97 + randomInt / 26) + ((char) (97 + randomInt % 26));
     }
+
+    private static IGameState getStub(int port) throws IOException, ClassNotFoundException {
+        return getStub(null, port);
+    }
+
+    private static IGameState getStub(String ip, int port) throws IOException, ClassNotFoundException {
+        IGameState stub;
+        try (Socket socket = new Socket(ip, port)) {
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(ListenerThread.REQUEST_GAMESTATE);
+            try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
+                stub = (IGameState) ois.readObject();
+            }
+        }
+        return stub;
+    }
+
+    private static boolean ping(int port) {
+        return ping(null, port);
+    }
+
+    private static boolean ping(String ip, int port) {
+        try (Socket socket = new Socket(ip, port)) {
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(ListenerThread.REQUEST_PING);
+            try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
+                String resp = (String) ois.readObject();
+                return resp.equals(ListenerThread.RESPONSE_PING);
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println(e.getMessage());
+        }
+        return false;
+    }
+
 }
