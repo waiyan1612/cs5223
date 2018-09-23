@@ -14,9 +14,14 @@ public class GUI extends JFrame implements PropertyChangeListener {
     private GameState gameState;
 
     private void updateInfoLabel(){
-        StringBuilder sb = new StringBuilder("Scores for ");
-        for (Map.Entry<String, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
-            sb.append(entry.getKey()).append(" : ").append(entry.getValue().score);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Primary: ").append(gameState.getPrimary().name).append(";");
+        if(gameState.getSecondary() != null) {
+            sb.append("Secondary: ").append(gameState.getSecondary().name).append(";");
+        }
+        sb.append("Scores: ");
+        for (Map.Entry<Player, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
+            sb.append(entry.getKey().name).append(" : ").append(entry.getValue().score).append(";");
         }
     	infoLabel.setText(sb.toString());
     }
@@ -32,10 +37,10 @@ public class GUI extends JFrame implements PropertyChangeListener {
                 if(gameState.getTreasurePositions().contains(pos)) {
                     backgroundColor = Color.yellow;
                 }
-                for (Map.Entry<String, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
+                for (Map.Entry<Player, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
                     if(entry.getValue().position == pos) {
-                    	cell.append(entry.getKey());
-                        if(entry.getKey().equals(playerName)) {
+                    	cell.append(entry.getKey().name);
+                        if(entry.getKey().name.equals(playerName)) {
                         	backgroundColor = Color.green;
                         }
                         // can break because we cannot have two players in the same cell

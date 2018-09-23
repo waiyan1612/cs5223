@@ -16,4 +16,4 @@ Note that your code should work if the clients and server run on different compu
 #Assignment 2
 * Group 7 - Wai Yan
 * Group 8 - Yumeng
-*Group 30 - Soe Chun
+* Group 30 - Soe Chun

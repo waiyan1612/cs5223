@@ -1,6 +1,5 @@
 import java.beans.PropertyChangeSupport;
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -69,36 +68,27 @@ public class Game {
                 break;
             }
         }
-        //TODO: Recreate game state if primary goes down
-        //TODO: Ping every 0.5s to detect crashed nodes
-        //                if (!ping(players.get(0).port)) {
-        //                    System.out.println(players.get(0) + " has crashed!");
-        //                    trackerStub.removePlayer(players.get(0));
-        //                }
         IGameState stub = null;
+        ListenerThread listener;
         try {
             if (players.size() == 1) {
                 System.out.println("Primary Server");
                 GameState gameState = new GameState(N, K);
-                gameState.setPrimary(player.port);
+                gameState.setPrimary(player);
 
                 // Creating GameState Stub and serving it via Listener Thread
-                ServerSocket serverSocket = new ServerSocket(player.port);
                 stub = (IGameState) UnicastRemoteObject.exportObject(gameState, 0);
-                ListenerThread listener = new ListenerThread(serverSocket, stub);
+                listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.PRIMARY);
                 listener.start();
-
             } else if (players.size() == 2) {
                 System.out.println("Backup Server");
-                stub = getStub(players.get(0).port);
-                stub.setSecondary(player.port);
-
-                // Creating GameState Stub and serving it via Listener Thread
-                ServerSocket serverSocket = new ServerSocket(player.port);
-                ListenerThread listener = new ListenerThread(serverSocket, stub);
+                stub = getStub(players);
+                listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.SECONDARY);
                 listener.start();
             } else {
-                stub = getStub(players.get(0).port);
+                stub = getStub(players);
+                listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.NONE);
+                listener.start();
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -107,7 +97,7 @@ public class Game {
 
         GameState gs = null;
         try {
-            stub.initPlayerState(player.name);
+            stub.initPlayerState(player);
             gs = (GameState) stub.getReadOnlyCopy();
             System.out.println();
             System.out.println("========================  Instructions ======================== ");
@@ -124,8 +114,9 @@ public class Game {
         System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
 
         Scanner input = new Scanner(System.in);
-        while (input.hasNext()) {
-            try {
+        try {
+            g.updateGameState(stub);
+            while (input.hasNext()) {
                 String in = input.nextLine();
                 switch (in) {
                     case "0":
@@ -148,7 +139,7 @@ public class Game {
                         g.updateGameState(stub);
                         break;
                     case "9":
-                        stub.getPlayerStates().remove(g.player.name);
+                        stub.removePlayer(g.player);
                         trackerStub.removePlayer(g.player);
                         System.exit(0);
                         break;
@@ -157,9 +148,9 @@ public class Game {
                         System.out.println("========================  Instructions ======================== ");
                         System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
                 }
-            } catch (RemoteException e) {
-                System.err.println("Failed to fetch GameState: " + e.getMessage());
             }
+        } catch (RemoteException e) {
+            System.err.println("Failed to fetch GameState: " + e.getMessage());
         }
     }
 
@@ -174,11 +165,22 @@ public class Game {
         return "" + (char) (97 + randomInt / 26) + ((char) (97 + randomInt % 26));
     }
 
-    private static IGameState getStub(int port) throws IOException, ClassNotFoundException {
-        return getStub(null, port);
+    private static IGameState getStub(List<Player> players) throws ClassNotFoundException{
+        IGameState stub = null;
+        Iterator<Player> iter = players.iterator();
+        while(stub == null || !iter.hasNext()) {
+            Player p = iter.next();
+            try {
+                stub = getStub(p.port);
+            } catch(IOException e) {
+                System.err.println("Failed to get stub from " + p + ": " + e.getMessage());
+            }
+        }
+        return stub;
     }
 
-    private static IGameState getStub(String ip, int port) throws IOException, ClassNotFoundException {
+    private static IGameState getStub(int port) throws IOException, ClassNotFoundException {
+        String ip = null;
         IGameState stub;
         try (Socket socket = new Socket(ip, port)) {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -190,11 +192,9 @@ public class Game {
         return stub;
     }
 
-    private static boolean ping(int port) {
-        return ping(null, port);
-    }
 
-    private static boolean ping(String ip, int port) {
+    public static boolean ping(int port) {
+        String ip = null;
         try (Socket socket = new Socket(ip, port)) {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             out.println(ListenerThread.REQUEST_PING);
@@ -208,4 +208,16 @@ public class Game {
         return false;
     }
 
+    // Assume the call is always successful if port is open
+    public static boolean assignSecondary(int port) {
+        String ip = null;
+        try (Socket socket = new Socket(ip, port)) {
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(ListenerThread.ASSIGN_SECONDARY);
+            return true;
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+        }
+        return false;
+    }
 }

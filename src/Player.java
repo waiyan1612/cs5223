@@ -28,4 +28,12 @@ public class Player implements Serializable {
         Player player = (Player) that;
         return player.name.equals(this.name) && player.port == this.port;
     }
+
+    @Override
+    public int hashCode() {
+        int result = 71;
+        result = 31 * result + name.hashCode();
+        result = 31 * result + port;
+        return result;
+    }
 }

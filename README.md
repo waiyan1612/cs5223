@@ -40,3 +40,8 @@ java Game trackerIP trackerPort playerName
 ```
 java StressTest 127.0.0.1 1099 "java Game"
 ```
+
+### Count lines in source code
+```
+wc -l *.java
+```

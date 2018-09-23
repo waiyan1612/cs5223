@@ -1,29 +1,82 @@
+import java.beans.PropertyChangeSupport;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class ListenerThread extends Thread {
 
     public static final String REQUEST_GAMESTATE = "1";
     public static final String REQUEST_PING = "2";
     public static final String RESPONSE_PING = "3";
+    public static final String ASSIGN_SECONDARY = "4";
 
+    public static final int PRIMARY = 1;
+    public static final int SECONDARY = 2;
+    public static final int NONE = 0;
+
+    private int port;
     private ServerSocket socket;
-    private IGameState state;
+    private IGameState gameState;
+    private ITrackerState trackerState;
+    private ScheduledExecutorService executorService;
+    private int type;
 
-    public ListenerThread(ServerSocket socket, IGameState state) {
-        this.socket = socket;
-        this.state = state;
+    public ITrackerState getITrackerState() {
+        return trackerState;
+    }
+
+    public IGameState getIGameState(){
+        return gameState;
+    }
+
+    public ListenerThread(int port, IGameState primaryGS, ITrackerState ts, int type) {
+        this.port = port;
+        this.gameState = primaryGS;
+        this.trackerState = ts;
+        this.executorService = Executors.newSingleThreadScheduledExecutor();
+        this.type = type;
+
+        if(type == PRIMARY) {
+            setupPrimaryThread(primaryGS);
+        }
+
+        try {
+            socket = new ServerSocket(port);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void setupPrimaryThread(IGameState primaryGS){
+        this.gameState = primaryGS;
+        PrimaryThread primaryThread = new PrimaryThread(primaryGS, trackerState);
+        executorService.scheduleAtFixedRate(primaryThread, 0, 5000, TimeUnit.MILLISECONDS);
+    }
+
+    public void setupSecondaryThread(IGameState secondaryGS){
+        SecondaryThread secondaryThread = new SecondaryThread(this, secondaryGS);
+        executorService.scheduleAtFixedRate(secondaryThread, 0, 5000, TimeUnit.MILLISECONDS);
     }
 
     public void run() {
         try {
+            if(type == SECONDARY) {
+                setupSecondary();
+            }
+
             while (true) {
                 // Create new thread for each connection
                 Socket s = socket.accept();
                 BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
                 ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-                Thread t = new ClientHandlerThread(s, state, in, out);
+                Thread t = new ClientHandlerThread(this, in, out);
                 t.start();
             }
         } catch (IOException e) {
@@ -32,18 +85,37 @@ public class ListenerThread extends Thread {
         }
     }
 
+    public void setupSecondary() throws RemoteException {
+        System.out.println("Received request to become secondary server.");
+        GameState gs = (GameState) gameState.getReadOnlyCopy();
+        Player secondary = null;
+        for (Map.Entry<Player, GameState.PlayerState> entry : gs.getPlayerStates().entrySet()) {
+            if (entry.getKey().port == port) {
+                secondary = entry.getKey();
+                break;
+            }
+        }
+        gameState.setSecondary(secondary);
+        IGameState secondaryStub = (IGameState) UnicastRemoteObject.exportObject(gameState.getReadOnlyCopy(), 0);
+        gameState.setSecondaryGameState(secondaryStub);
+        setupSecondaryThread(secondaryStub);
+        System.out.println("Player " + secondary + " is now secondary server");
+    }
+
     public static class ClientHandlerThread extends Thread {
 
-        private Socket socket;
-        private IGameState state;
+        private ListenerThread parent;
         private BufferedReader in;
         private ObjectOutputStream out;
+        private int port;
+        private IGameState gameState;
 
-        public ClientHandlerThread(Socket socket, IGameState state, BufferedReader in, ObjectOutputStream out) {
-            this.socket = socket;
-            this.state = state;
+        public ClientHandlerThread(ListenerThread parent, BufferedReader in, ObjectOutputStream out) {
+            this.parent = parent;
             this.in = in;
             this.out = out;
+            this.port = parent.port;
+            this.gameState = parent.gameState;
         }
 
         public void run() {
@@ -51,19 +123,23 @@ public class ListenerThread extends Thread {
                 while (true) {
                     String input = in.readLine();
                     if (input != null) {
-                        System.out.println(input);
-                        if (input.equals(REQUEST_GAMESTATE)) {
-                            out.writeObject(state);
-                            break;
-                        } else if (input.equals(REQUEST_PING)) {
-                            out.writeObject(RESPONSE_PING);
-                            break;
+                        switch(input) {
+                            case REQUEST_GAMESTATE:
+                                out.writeObject(gameState);
+                                break;
+                            case REQUEST_PING:
+                                out.writeObject(RESPONSE_PING);
+                                break;
+                            case ASSIGN_SECONDARY:
+                                parent.setupSecondary();
+                                break;
                         }
                     }
                 }
-                socket.close();
+            } catch(SocketException e) {
+                System.err.println("ClientHandlerThread SocketException: " + e.getMessage());
             } catch(IOException e) {
-                System.err.println("ClientHandlerThread:" + e.getMessage());
+                System.err.println("ClientHandlerThread: " + e.getMessage());
                 e.printStackTrace();
             }
         }
