@@ -12,6 +12,8 @@ import java.util.concurrent.TimeUnit;
 
 public class ListenerThread extends Thread {
 
+    public static final long PING_INTERVAL = 500;
+
     public static final String REQUEST_GAMESTATE = "1";
     public static final String REQUEST_PING = "2";
     public static final String RESPONSE_PING = "3";
@@ -57,12 +59,12 @@ public class ListenerThread extends Thread {
     public void setupPrimaryThread(IGameState primaryGS){
         this.gameState = primaryGS;
         PrimaryThread primaryThread = new PrimaryThread(primaryGS, trackerState);
-        executorService.scheduleAtFixedRate(primaryThread, 0, 5000, TimeUnit.MILLISECONDS);
+        executorService.scheduleAtFixedRate(primaryThread, 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void setupSecondaryThread(IGameState secondaryGS){
         SecondaryThread secondaryThread = new SecondaryThread(this, secondaryGS);
-        executorService.scheduleAtFixedRate(secondaryThread, 0, 5000, TimeUnit.MILLISECONDS);
+        executorService.scheduleAtFixedRate(secondaryThread, 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void run() {
@@ -80,7 +82,7 @@ public class ListenerThread extends Thread {
                 t.start();
             }
         } catch (IOException e) {
-            System.err.println("ListenerThread:" + e.getMessage());
+            System.err.println("ListenerThread: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -107,14 +109,12 @@ public class ListenerThread extends Thread {
         private ListenerThread parent;
         private BufferedReader in;
         private ObjectOutputStream out;
-        private int port;
         private IGameState gameState;
 
         public ClientHandlerThread(ListenerThread parent, BufferedReader in, ObjectOutputStream out) {
             this.parent = parent;
             this.in = in;
             this.out = out;
-            this.port = parent.port;
             this.gameState = parent.gameState;
         }
 

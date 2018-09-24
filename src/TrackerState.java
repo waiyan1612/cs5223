@@ -22,13 +22,13 @@ public class TrackerState implements ITrackerState, Serializable {
         this.lastPortUsed = lastPortUsed;
     }
 
-    public void addPlayer(Player p){
+    public synchronized void addPlayer(Player p){
         p.setPort(lastPortUsed);
         players.add(p);
         lastPortUsed ++;
     }
 
-    public void removePlayer(Player p) {
+    public synchronized void removePlayer(Player p) {
         players.remove(p);
     }
 

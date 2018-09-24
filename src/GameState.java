@@ -52,20 +52,20 @@ public class GameState implements IGameState, Serializable  {
         return new GameState(N, K, treasurePositions, playerStates, primary, secondary);
     }
 
-    public void setPrimary(Player port) {
+    public synchronized void setPrimary(Player port) {
         primary = port;
         updateBackupCopy();
     }
 
-    public void setSecondary(Player port) {
+    public synchronized void setSecondary(Player port) {
         secondary = port;
     }
 
-    public void setSecondaryGameState(IGameState stub){
+    public synchronized void setSecondaryGameState(IGameState stub){
         secondaryStub = stub;
     }
 
-    public void createTreasures(){
+    public synchronized void createTreasures(){
         Random r = new Random();
         while(treasurePositions.size() < K) {
             treasurePositions.add(r.nextInt(N*N));
@@ -77,12 +77,12 @@ public class GameState implements IGameState, Serializable  {
         treasurePositions.remove(position);
     }
 
-    public void initPlayerState(Player player) {
+    public synchronized void initPlayerState(Player player) {
         playerStates.put(player, new PlayerState(randValidPosition()));
         updateBackupCopy();
     }
 
-    public void move(Player player, int diff) {
+    public synchronized void move(Player player, int diff) {
         GameState.PlayerState ps = getPlayerStates().get(player);
         if ((diff == -1  && ps.position % N == 0) || // left
                 (diff == N && ps.position >= N*(N-1)) || // bottom
@@ -119,12 +119,12 @@ public class GameState implements IGameState, Serializable  {
         // no need to updateBackupCopy
     }
 
-    public void updateBackupCopy() {
+    public synchronized void updateBackupCopy() {
         if(secondaryStub != null) {
             try {
                 secondaryStub.updateAll(treasurePositions, playerStates, primary, secondary);
             } catch (RemoteException e) {
-                System.err.println("Failed to update back up copy.");
+                System.err.println("Failed to update back up copy: " + e.getMessage());
                 e.printStackTrace();
             }
         }

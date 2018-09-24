@@ -103,7 +103,7 @@ public class Game {
             System.out.println("========================  Instructions ======================== ");
             System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
         } catch (RemoteException e) {
-            System.err.println("Failed to init player state");
+            System.err.println("Failed to init player state: " + e.getMessage());
             System.exit(-1);
         }
 
@@ -203,7 +203,7 @@ public class Game {
                 return resp.equals(ListenerThread.RESPONSE_PING);
             }
         } catch (IOException | ClassNotFoundException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Exception while pinging "+ port + ": " + e.getMessage());
         }
         return false;
     }
@@ -216,7 +216,7 @@ public class Game {
             out.println(ListenerThread.ASSIGN_SECONDARY);
             return true;
         } catch (IOException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Exception while sending ASSIGN_SECONDARY msg to "+ port + ": " + e.getMessage());
         }
         return false;
     }

@@ -6,24 +6,23 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.Map;
 
-
 public class GUI extends JFrame implements PropertyChangeListener {
     private String playerName;
     private JLabel[][] mapGrids;
-    private JLabel infoLabel;
+    private JLabel[] infoLabels;
     private GameState gameState;
+    private static final int NUM_FIXED_TOP_ROWS = 2;
 
     private void updateInfoLabel(){
-        StringBuilder sb = new StringBuilder();
-        sb.append("Primary: ").append(gameState.getPrimary().name).append(";");
+        infoLabels[0].setText(" PRIMARY: " + gameState.getPrimary().name);
         if(gameState.getSecondary() != null) {
-            sb.append("Secondary: ").append(gameState.getSecondary().name).append(";");
+            infoLabels[1].setText(" SECONDARY: " + gameState.getSecondary().name);
         }
-        sb.append("Scores: ");
+        infoLabels[2].setText("==========");
+        int i = NUM_FIXED_TOP_ROWS;
         for (Map.Entry<Player, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
-            sb.append(entry.getKey().name).append(" : ").append(entry.getValue().score).append(";");
+            infoLabels[++i].setText(entry.getKey().name + " : " + entry.getValue().score);
         }
-    	infoLabel.setText(sb.toString());
     }
 
     private void updateMapGrids() {
@@ -60,13 +59,16 @@ public class GUI extends JFrame implements PropertyChangeListener {
         this.playerName = playerName;
         this.gameState = gameState;
 
-        // Info
-        Panel legend = new Panel(new FlowLayout());
-        infoLabel = new JLabel();
+        Panel legend = new Panel();
+        legend.setLayout(new BoxLayout(legend, BoxLayout.PAGE_AXIS));
+        int maxPossibleRows = rows * cols + NUM_FIXED_TOP_ROWS + 1;
+        infoLabels = new JLabel[maxPossibleRows];
+        for(int i=0; i<maxPossibleRows; i++) {
+            infoLabels[i] = new JLabel();
+            infoLabels[i].setBorder(BorderFactory.createEmptyBorder(5, 5, 0, 5));
+            legend.add(infoLabels[i]);
+        }
         updateInfoLabel();
-        infoLabel.setBorder(BorderFactory.createLineBorder(Color.black));
-        infoLabel.setSize(400, 768);
-        legend.add(infoLabel);
 
         // Map
         Panel map = new Panel(new GridLayout(rows, cols));

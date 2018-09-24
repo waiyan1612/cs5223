@@ -37,7 +37,7 @@ public class PrimaryThread extends Thread {
                 }
             }
         } catch (IOException e) {
-            System.err.println("PrimaryThread:" + e.getMessage());
+            System.err.println("PrimaryThread: " + e.getMessage());
             e.printStackTrace();
         }
     }
