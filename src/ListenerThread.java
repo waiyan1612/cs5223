@@ -18,6 +18,7 @@ public class ListenerThread extends Thread {
     public static final String REQUEST_PING = "2";
     public static final String RESPONSE_PING = "3";
     public static final String ASSIGN_SECONDARY = "4";
+    public static final String SECONDARY_ASSIGNED = "5";
 
     public static final int PRIMARY = 1;
     public static final int SECONDARY = 2;
@@ -132,6 +133,7 @@ public class ListenerThread extends Thread {
                                 break;
                             case ASSIGN_SECONDARY:
                                 parent.setupSecondary();
+                                out.writeObject(SECONDARY_ASSIGNED);
                                 break;
                         }
                     }

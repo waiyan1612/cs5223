@@ -208,14 +208,17 @@ public class Game {
         return false;
     }
 
-    // Assume the call is always successful if port is open
     public static boolean assignSecondary(int port) {
         String ip = null;
         try (Socket socket = new Socket(ip, port)) {
+            System.out.println("Sending ASSIGN_SECONDARY msg to "+ port);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             out.println(ListenerThread.ASSIGN_SECONDARY);
-            return true;
-        } catch (IOException e) {
+            try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
+                String resp = (String) ois.readObject();
+                return resp.equals(ListenerThread.SECONDARY_ASSIGNED);
+            }
+        } catch (IOException  | ClassNotFoundException e) {
             System.err.println("Exception while sending ASSIGN_SECONDARY msg to "+ port + ": " + e.getMessage());
         }
         return false;
