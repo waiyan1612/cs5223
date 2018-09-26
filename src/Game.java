@@ -2,6 +2,7 @@ import java.beans.PropertyChangeSupport;
 import java.io.*;
 import java.net.Socket;
 import java.rmi.NotBoundException;
+import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -112,48 +113,62 @@ public class Game {
         long start = System.currentTimeMillis();
         Game g = new Game(player, gs);
         System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
+        acquireAndListen(stub, trackerStub, g, player, N, gs);
 
-        Scanner input = new Scanner(System.in);
+    }
+    private static void acquireAndListen(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N, GameState gs) {
         try {
-            g.updateGameState(stub);
-            while (input.hasNext()) {
-                String in = input.nextLine();
-                switch (in) {
-                    case "0":
-                        g.updateGameState(stub);
-                        break;
-                    case "1":
-                        stub.move(player, -1);
-                        g.updateGameState(stub);
-                        break;
-                    case "2":
-                        stub.move(player, N);
-                        g.updateGameState(stub);
-                        break;
-                    case "3":
-                        stub.move(player, 1);
-                        g.updateGameState(stub);
-                        break;
-                    case "4":
-                        stub.move(player, -N);
-                        g.updateGameState(stub);
-                        break;
-                    case "9":
-                        stub.removePlayer(g.player);
-                        trackerStub.removePlayer(g.player);
-                        System.exit(0);
-                        break;
-                    default:
-                        System.out.println("Invalid Input!");
-                        System.out.println("========================  Instructions ======================== ");
-                        System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
-                }
-            }
+            listenUserInput(stub, trackerStub, g, player, N);
         } catch (RemoteException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
+            System.err.println("Primary Server Failed");
+            try {
+                stub = getStub(gs.getSecondary().port);
+                gs = (GameState) stub.getReadOnlyCopy();
+                acquireAndListen(stub, trackerStub, g, player, N, gs);
+            } catch (IOException | ClassNotFoundException ex) {
+
+            }
         }
     }
+    private static void listenUserInput(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N) throws RemoteException{
+        Scanner input = new Scanner(System.in);
+        g.updateGameState(stub);
+        while (input.hasNext()) {
+            String in = input.nextLine();
+            switch (in) {
+                case "0":
+                    g.updateGameState(stub);
+                    break;
+                case "1":
+                    stub.move(player, -1);
+                    g.updateGameState(stub);
+                    break;
+                case "2":
+                    stub.move(player, N);
+                    g.updateGameState(stub);
+                    break;
+                case "3":
+                    stub.move(player, 1);
+                    g.updateGameState(stub);
+                    break;
+                case "4":
+                    stub.move(player, -N);
+                    g.updateGameState(stub);
+                    break;
+                case "9":
+                    stub.removePlayer(g.player);
+                    trackerStub.removePlayer(g.player);
+                    System.exit(0);
+                    break;
+                default:
+                    System.out.println("Invalid Input!");
+                    System.out.println("========================  Instructions ======================== ");
+                    System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+            }
+        }
 
+    }
     private void updateGameState(IGameState stub) throws RemoteException {
         GameState gs = (GameState) stub.getReadOnlyCopy();
         observable.firePropertyChange("gameState", null, gs);
