@@ -39,6 +39,11 @@ public class GameState implements IGameState, Serializable  {
     public Player getSecondary() {
         return secondary;
     }
+   
+    
+    public IGameState getSecondaryStub() {
+        return secondaryStub;
+    }
 
     public Set<Integer> getTreasurePositions(){
         return treasurePositions;
@@ -111,6 +116,11 @@ public class GameState implements IGameState, Serializable  {
     public void removePlayer(Player p){
         playerStates.remove(p);
         updateBackupCopy();
+    }
+    
+    public void removePrimaryServer(Player p) {
+        playerStates.remove(p);
+        secondary = null;
     }
 
     public void removeSecondaryServer(Player p) {

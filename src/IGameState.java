@@ -16,6 +16,7 @@ public interface IGameState extends Remote {
     void initPlayerState(Player p) throws RemoteException;
     void move(Player player, int diff) throws RemoteException;
     void removePlayer(Player p) throws RemoteException;
+    void removePrimaryServer(Player p) throws RemoteException;
     void removeSecondaryServer(Player p) throws RemoteException;
     Set<Integer> getTreasurePositions() throws RemoteException;
     Map<Player, GameState.PlayerState> getPlayerStates() throws RemoteException;

@@ -19,6 +19,10 @@ public class ListenerThread extends Thread {
     public static final String RESPONSE_PING = "3";
     public static final String ASSIGN_SECONDARY = "4";
     public static final String SECONDARY_ASSIGNED = "5";
+    public static final String CHECK_TYPE_PRIMARY = "6";
+    public static final String IS_PRIMARY = "7";
+    public static final String NOT_PRIMARY = "8";
+    
 
     public static final int PRIMARY = 1;
     public static final int SECONDARY = 2;
@@ -60,10 +64,26 @@ public class ListenerThread extends Thread {
     public void setupPrimaryThread(IGameState primaryGS){
         this.gameState = primaryGS;
         PrimaryThread primaryThread = new PrimaryThread(primaryGS, trackerState);
+        type = PRIMARY;
+        executorService.scheduleAtFixedRate(primaryThread, 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
+    }
+    
+    public void setupPrimaryThread(IGameState primaryGS, ITrackerState trackerState) throws RemoteException{
+    	type = PRIMARY;
+        IGameState primaryStub = (IGameState) UnicastRemoteObject.exportObject(primaryGS.getReadOnlyCopy(), 0);
+  
+        this.gameState = primaryStub;
+        this.gameState.setSecondaryGameState(primaryStub);
+        this.trackerState = trackerState;
+       
+        PrimaryThread primaryThread = new PrimaryThread(primaryStub, trackerState);
+        executorService.shutdown();
+        executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleAtFixedRate(primaryThread, 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void setupSecondaryThread(IGameState secondaryGS){
+    	type = SECONDARY;
         SecondaryThread secondaryThread = new SecondaryThread(this, secondaryGS);
         executorService.scheduleAtFixedRate(secondaryThread, 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
     }
@@ -111,12 +131,14 @@ public class ListenerThread extends Thread {
         private BufferedReader in;
         private ObjectOutputStream out;
         private IGameState gameState;
+        private int type;
 
         public ClientHandlerThread(ListenerThread parent, BufferedReader in, ObjectOutputStream out) {
             this.parent = parent;
             this.in = in;
             this.out = out;
             this.gameState = parent.gameState;
+            this.type = parent.type;
         }
 
         public void run() {
@@ -134,6 +156,9 @@ public class ListenerThread extends Thread {
                             case ASSIGN_SECONDARY:
                                 parent.setupSecondary();
                                 out.writeObject(SECONDARY_ASSIGNED);
+                                break;
+                            case CHECK_TYPE_PRIMARY:
+                            	out.writeObject(type == PRIMARY ? IS_PRIMARY : NOT_PRIMARY);
                                 break;
                         }
                     }

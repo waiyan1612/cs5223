@@ -79,6 +79,7 @@ public class Game {
 
                 // Creating GameState Stub and serving it via Listener Thread
                 stub = (IGameState) UnicastRemoteObject.exportObject(gameState, 0);
+                trackerStub.setPrimaryServerPort(player.port);
                 listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.PRIMARY);
                 listener.start();
             } else if (players.size() == 2) {
@@ -122,8 +123,35 @@ public class Game {
         } catch (RemoteException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
             System.err.println("Primary Server Failed");
+            
+            int primaryServerPort = 0;
+            
             try {
-                stub = getStub(gs.getSecondary().port);
+            	
+            	boolean primarySetted = false;
+            	
+            	while(!primarySetted){
+            		
+    				primaryServerPort = trackerStub.getPrimaryServerPort();
+            		
+                	System.out.println("the next primary is: "+ primaryServerPort);
+                	String ip = null;
+            		try (Socket socket = new Socket(ip, primaryServerPort)) {
+                        System.out.println("Sending CHECK_TYPE_PRIMARY msg to "+ primaryServerPort);
+                        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                        out.println(ListenerThread.CHECK_TYPE_PRIMARY);
+                        try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
+                            String resp = (String) ois.readObject();
+                            primarySetted = resp.equals(ListenerThread.IS_PRIMARY);
+                        }
+                    } catch (IOException  | ClassNotFoundException e1) {
+                        System.err.println("Exception while sending CHECK_TYPE_PRIMARY msg to "+ primaryServerPort + ": " + e1.getMessage());
+                    }
+        		}
+            	System.out.println("Port "+ primaryServerPort + " acts as primary server now.");
+            	
+         
+            	stub = getStub(primaryServerPort);
                 gs = (GameState) stub.getReadOnlyCopy();
                 acquireAndListen(stub, trackerStub, g, player, N, gs);
             } catch (IOException | ClassNotFoundException ex) {

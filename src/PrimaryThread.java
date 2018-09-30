@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.rmi.RemoteException;
 import java.util.Iterator;
 import java.util.List;
 
@@ -10,6 +11,8 @@ public class PrimaryThread extends Thread {
     public PrimaryThread(IGameState primaryStub,  ITrackerState trackerStub) {
         this.primaryStub = primaryStub;
         this.trackerStub = trackerStub;
+        // TODO: Currently the setting of next secondary server when primary server down not working.
+    }
     }
 
     public void run() {

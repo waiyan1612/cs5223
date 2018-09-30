@@ -6,6 +6,7 @@ public class TrackerState implements ITrackerState, Serializable {
     public int N;
     public int K;
     public List<Player> players;
+    private int secondaryServerPort;
     private int lastPortUsed;
 
     public TrackerState (int N, int K){
@@ -31,9 +32,18 @@ public class TrackerState implements ITrackerState, Serializable {
     public synchronized void removePlayer(Player p) {
         players.remove(p);
     }
+    
+    public synchronized void setPrimaryServerPort(int port) {
+    	secondaryServerPort = port;
+    }
+    
 
     public ITrackerState getReadOnlyCopy() {
         return new TrackerState(N, K, players, lastPortUsed);
+    }
+    
+    public int getPrimaryServerPort() {
+    	return secondaryServerPort;
     }
 
     @Override
