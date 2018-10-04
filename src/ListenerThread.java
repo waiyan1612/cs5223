@@ -42,6 +42,12 @@ public class ListenerThread extends Thread {
     public IGameState getIGameState(){
         return gameState;
     }
+    
+    public void removePlayer(Player player) throws RemoteException{
+    	gameState.removePlayer(player);
+    	trackerState.removePlayer(player);
+    	
+    }
 
     public ListenerThread(int port, IGameState primaryGS, ITrackerState ts, int type) {
         this.port = port;

@@ -1,8 +1,8 @@
 import java.io.IOException;
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class SecondaryThread extends Thread {
 
@@ -18,6 +18,25 @@ public class SecondaryThread extends Thread {
         GameState gs = null;
         try {
             gs = (GameState) listener.getIGameState().getReadOnlyCopy();
+            Set<Player> playerSet = secondaryStub.getPlayerStates().keySet();
+            List<Player> playerList = new ArrayList<>(playerSet);
+
+            for (int i=0; i<playerSet.size(); i++){
+
+                int primaryPort = gs.getPrimary().port;
+                int secondaryPort = gs.getSecondary().port;
+                Player player = playerList.get(i);
+            	if (player.port != primaryPort && player.port != secondaryPort){
+            		boolean success = Game.ping(player.port);
+                    if (!success) {
+                        System.out.println("Player at port " + player.port +" has crashed!");
+                        System.out.println("Remove the player from game.");
+                        this.listener.removePlayer(player);
+                    }
+            	}
+            }
+            
+            
         } catch (RemoteException e) {
             System.out.println("Primary Server has went down.");
         }
