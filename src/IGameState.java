@@ -13,7 +13,7 @@ public interface IGameState extends Remote {
     IGameState getReadOnlyCopy() throws RemoteException;
     void setPrimary(Player p) throws RemoteException;
     void setSecondary(Player p) throws RemoteException;
-    void initPlayerState(Player p) throws RemoteException;
+    IGameState initPlayerState(Player p) throws RemoteException;
     void move(Player player, int diff) throws RemoteException;
     void removePlayer(Player p) throws RemoteException;
     void removePrimaryServer(Player p) throws RemoteException;

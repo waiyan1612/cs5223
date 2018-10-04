@@ -19,6 +19,7 @@ public class PrimaryThread extends Thread {
         try {
             // this is fine since this is not a remote call
             GameState gs = (GameState) primaryStub.getReadOnlyCopy();
+            Player primary = gs.getPrimary();
             Player secondary = gs.getSecondary();
             if(secondary != null) {
                 boolean success = Game.ping(secondary.port);
@@ -29,19 +30,27 @@ public class PrimaryThread extends Thread {
                     // remove secondary from game
                     primaryStub.removeSecondaryServer(secondary);
                     // get latest list of players from tracker
-                    TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
-                    List<Player> activePlayers = tracker.players;
-                    activePlayers.remove(gs.getPrimary());
-                    Iterator<Player> iter = activePlayers.iterator();
-                    boolean assigned = false;
-                    while (iter.hasNext() && !assigned) {
-                        assigned = Game.assignSecondary(iter.next().port);
-                    }
+                    sendRequestToNonPrimary(primary);
                 }
+            } else {
+                sendRequestToNonPrimary(primary);
             }
         } catch (IOException e) {
             System.err.println("PrimaryThread: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private void sendRequestToNonPrimary(Player primary) throws RemoteException {
+        TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
+        List<Player> activePlayers = tracker.players;
+        Iterator<Player> iter = activePlayers.iterator();
+        boolean assigned = false;
+        while (iter.hasNext() && !assigned) {
+            Player p = iter.next();
+            if(!p.equals(primary)) {
+                assigned = Game.assignSecondary(primary.port, p.port);
+            }
         }
     }
 }

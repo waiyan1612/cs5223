@@ -2,8 +2,6 @@ import java.beans.PropertyChangeSupport;
 import java.io.*;
 import java.net.Socket;
 import java.rmi.NotBoundException;
-import java.rmi.Remote;
-import java.util.concurrent.TimeUnit.*;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -18,20 +16,18 @@ public class Game {
     private GameState gs;
     private static String trackerIp = null;
     private static int trackerPort = 0;
+
     public Game(Player p, GameState gs) {
         player = p;
         GUI gui = new GUI(gs, player.name);
         observable = new PropertyChangeSupport(this);
         observable.addPropertyChangeListener(gui);
-        gs = gs;
+        this.gs = gs;
     }
 
     public static void main(String[] args) {
 
-//        String trackerIp = null;
-//        int trackerPort = 0;
         String playerName;
-
         if (args.length == 3) {
             trackerIp = args[0];
             trackerPort = Integer.parseInt(args[1]);
@@ -74,6 +70,7 @@ public class Game {
             }
         }
         IGameState stub = null;
+        GameState gs = null;
         ListenerThread listener;
         try {
             if (players.size() == 1) {
@@ -83,35 +80,29 @@ public class Game {
 
                 // Creating GameState Stub and serving it via Listener Thread
                 stub = (IGameState) UnicastRemoteObject.exportObject(gameState, 0);
-                trackerStub.setPrimaryServerPort(player.port);
+                gs = (GameState) stub.initPlayerState(player);
                 listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.PRIMARY);
                 listener.start();
             } else if (players.size() == 2) {
                 System.out.println("Backup Server");
-                stub = getStub(players);
+                stub = getStub(trackerStub, player);
+                gs = tryInitPlayerState(trackerStub, stub, player);
                 listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.SECONDARY);
                 listener.start();
             } else {
-                stub = getStub(players);
+                stub = getStub(trackerStub, player);
+                gs = tryInitPlayerState(trackerStub, stub, player);
                 listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.NONE);
                 listener.start();
             }
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             System.exit(-1);
         }
 
-        GameState gs = null;
-        try {
-            stub.initPlayerState(player);
-            gs = (GameState) stub.getReadOnlyCopy();
-            System.out.println();
-            System.out.println("========================  Instructions ======================== ");
-            System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
-        } catch (RemoteException e) {
-            System.err.println("Failed to init player state: " + e.getMessage());
-            System.exit(-1);
-        }
+        System.out.println();
+        System.out.println("========================  Instructions ======================== ");
+        System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
 
         // The assignment promises 2 seconds gap between successive crashes.
         // StressTest gives 3 seconds just to be nice.
@@ -121,6 +112,20 @@ public class Game {
         acquireAndListen(stub, trackerStub, g, player, N, gs);
 
     }
+
+    private static GameState tryInitPlayerState(ITrackerState trackerStub, IGameState stub, Player player){
+        if(stub == null) {
+            System.err.println("Unable to find a stub recursively.");
+            return null;
+        }
+        try {
+            return (GameState) stub.initPlayerState(player);
+        } catch (RemoteException e) {
+            stub = getStub(trackerStub, player);
+            return tryInitPlayerState(trackerStub, stub, player);
+        }
+    }
+
     private static void acquireAndListen(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N, GameState gs) {
         try {
             listenUserInput(stub, trackerStub, g, player, N);
@@ -143,34 +148,18 @@ public class Game {
                         acquireAndListen(stub, trackerStub, g, player, N, gs);
                         notConnected = false;
                     }
-                } catch (IOException | ClassNotFoundException | NullPointerException ex) {
+                } catch (IOException | NullPointerException ex) {
 
                 }
             }
             System.out.print("Time done" + (currentTime - startTime));
 
-            TrackerState tracker = null;
-            try {
-                tracker = (TrackerState) trackerStub.getReadOnlyCopy();
-            } catch (RemoteException e1) {
-                e1.printStackTrace();
-            }
-
-            List<Player> players = tracker.players;
-            for (Player play:players
-                 ) {
-                System.out.println("players" + play.name);
-            }
-            try {
-                stub = getStub(players);
-                System.out.println("Connecting to new server");
-                acquireAndListen(stub, trackerStub, g, player, N, gs);
-            } catch (ClassNotFoundException e1) {
-                e1.printStackTrace();
-            }
-
+            stub = getStub(trackerStub, player);
+            System.out.println("Connecting to new server");
+            acquireAndListen(stub, trackerStub, g, player, N, gs);
         }
     }
+
     private static void listenUserInput(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N) throws RemoteException{
         Scanner input = new Scanner(System.in);
         g.updateGameState(stub);
@@ -209,6 +198,7 @@ public class Game {
         }
 
     }
+
     private void updateGameState(IGameState stub) throws RemoteException {
         GameState gs = (GameState) stub.getReadOnlyCopy();
         if (gs != null) this.gs = gs;
@@ -221,28 +211,41 @@ public class Game {
         return "" + (char) (97 + randomInt / 26) + ((char) (97 + randomInt % 26));
     }
 
-    private static IGameState getStub(List<Player> players) throws ClassNotFoundException{
+    private static IGameState getStub(ITrackerState trackerStub, Player currentPlayer) {
         IGameState stub = null;
-        Iterator<Player> iter = players.iterator();
-        while(stub == null || !iter.hasNext()) {
-            Player p = iter.next();
-            try {
-                stub = getStub(p.port);
-            } catch(IOException e) {
-                System.err.println("Failed to get stub from " + p + ": " + e.getMessage());
+        try {
+            TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
+            Iterator<Player> iter = tracker.players.iterator();
+            System.out.println(tracker.players);
+            while(stub == null || !iter.hasNext()) {
+                Player p = iter.next();
+                if(!p.equals(currentPlayer)) {
+                    try {
+                        stub = getStub(p.port);
+                    } catch (IOException e) {
+                        System.err.println("Failed to get stub from " + p + ": " + e.getMessage());
+                        //Doing this has some issues
+                        //System.err.println("Removing " + p + " from list of players.");
+                        //trackerStub.removePlayer(p);
+                    }
+                }
             }
+        } catch (RemoteException e) {
+            e.printStackTrace();
         }
         return stub;
     }
 
-    private static IGameState getStub(int port) throws IOException, ClassNotFoundException {
+    public static IGameState getStub(int port) throws IOException {
         String ip = null;
-        IGameState stub;
+        IGameState stub = null;
         try (Socket socket = new Socket(ip, port)) {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             out.println(ListenerThread.REQUEST_GAMESTATE);
             try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
                 stub = (IGameState) ois.readObject();
+            } catch (ClassNotFoundException e) {
+                System.err.println("This should never happen!");
             }
         }
         return stub;
@@ -264,18 +267,18 @@ public class Game {
         return false;
     }
 
-    public static boolean assignSecondary(int port) {
+    public static boolean assignSecondary(int from, int to) {
         String ip = null;
-        try (Socket socket = new Socket(ip, port)) {
-            System.out.println("Sending ASSIGN_SECONDARY msg to "+ port);
+        try (Socket socket = new Socket(ip, to)) {
+            System.out.println("Sending ASSIGN_SECONDARY msg to "+ to);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println(ListenerThread.ASSIGN_SECONDARY);
+            out.println(ListenerThread.ASSIGN_SECONDARY + "_" + from);
             try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
                 String resp = (String) ois.readObject();
                 return resp.equals(ListenerThread.SECONDARY_ASSIGNED);
             }
         } catch (IOException  | ClassNotFoundException e) {
-            System.err.println("Exception while sending ASSIGN_SECONDARY msg to "+ port + ": " + e.getMessage());
+            System.err.println("Exception while sending ASSIGN_SECONDARY msg to "+ to + ": " + e.getMessage());
         }
         return false;
     }

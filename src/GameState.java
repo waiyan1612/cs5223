@@ -82,9 +82,10 @@ public class GameState implements IGameState, Serializable  {
         treasurePositions.remove(position);
     }
 
-    public synchronized void initPlayerState(Player player) {
+    public synchronized IGameState initPlayerState(Player player) {
         playerStates.put(player, new PlayerState(randValidPosition()));
         updateBackupCopy();
+        return getReadOnlyCopy();
     }
 
     public synchronized void move(Player player, int diff) {

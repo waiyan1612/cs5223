@@ -61,7 +61,8 @@ public class GUI extends JFrame implements PropertyChangeListener {
 
         Panel legend = new Panel();
         legend.setLayout(new BoxLayout(legend, BoxLayout.PAGE_AXIS));
-        int maxPossibleRows = rows * cols + NUM_FIXED_TOP_ROWS + 1;
+        //int maxPossibleRows = rows * cols + NUM_FIXED_TOP_ROWS + 1;
+        int maxPossibleRows = 10; // for performance reasons
         infoLabels = new JLabel[maxPossibleRows];
         for(int i=0; i<maxPossibleRows; i++) {
             infoLabels[i] = new JLabel();

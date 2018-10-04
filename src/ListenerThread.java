@@ -1,4 +1,3 @@
-import java.beans.PropertyChangeSupport;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -19,9 +18,6 @@ public class ListenerThread extends Thread {
     public static final String RESPONSE_PING = "3";
     public static final String ASSIGN_SECONDARY = "4";
     public static final String SECONDARY_ASSIGNED = "5";
-    public static final String CHECK_TYPE_PRIMARY = "6";
-    public static final String IS_PRIMARY = "7";
-    public static final String NOT_PRIMARY = "8";
     
 
     public static final int PRIMARY = 1;
@@ -46,7 +42,6 @@ public class ListenerThread extends Thread {
     public void removePlayer(Player player) throws RemoteException{
     	gameState.removePlayer(player);
     	trackerState.removePlayer(player);
-    	
     }
 
     public ListenerThread(int port, IGameState primaryGS, ITrackerState ts, int type) {
@@ -97,7 +92,7 @@ public class ListenerThread extends Thread {
     public void run() {
         try {
             if(type == SECONDARY) {
-                setupSecondary();
+                setupSecondary(-1);
             }
 
             while (true) {
@@ -114,8 +109,15 @@ public class ListenerThread extends Thread {
         }
     }
 
-    public void setupSecondary() throws RemoteException {
+    public void setupSecondary(int from) throws RemoteException {
         System.out.println("Received request to become secondary server.");
+        if (from != -1) {
+            try {
+                this.gameState = Game.getStub(from);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         GameState gs = (GameState) gameState.getReadOnlyCopy();
         Player secondary = null;
         for (Map.Entry<Player, GameState.PlayerState> entry : gs.getPlayerStates().entrySet()) {
@@ -159,13 +161,12 @@ public class ListenerThread extends Thread {
                             case REQUEST_PING:
                                 out.writeObject(RESPONSE_PING);
                                 break;
-                            case ASSIGN_SECONDARY:
-                                parent.setupSecondary();
-                                out.writeObject(SECONDARY_ASSIGNED);
-                                break;
-                            case CHECK_TYPE_PRIMARY:
-                            	out.writeObject(type == PRIMARY ? IS_PRIMARY : NOT_PRIMARY);
-                                break;
+                        }
+                        if(input.startsWith(ASSIGN_SECONDARY)) {
+                            int port = Integer.valueOf(input.split("_")[1]);
+                            parent.setupSecondary(port);
+                            out.writeObject(SECONDARY_ASSIGNED);
+                            break;
                         }
                     }
                 }

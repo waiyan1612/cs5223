@@ -35,8 +35,6 @@ public class SecondaryThread extends Thread {
                     }
             	}
             }
-            
-            
         } catch (RemoteException e) {
             System.out.println("Primary Server has went down.");
         }
@@ -49,7 +47,6 @@ public class SecondaryThread extends Thread {
                 
                 ITrackerState trackerStub = listener.getITrackerState();
                 trackerStub.removePlayer(primary);
-                trackerStub.setPrimaryServerPort(secondary.port);
                 secondaryStub.removePrimaryServer(primary);
                 secondaryStub.setPrimary(secondary);
                 listener.setupPrimaryThread(secondaryStub, trackerStub);
