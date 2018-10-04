@@ -3,6 +3,7 @@ import java.io.*;
 import java.net.Socket;
 import java.rmi.NotBoundException;
 import java.rmi.Remote;
+import java.util.concurrent.TimeUnit.*;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -14,18 +15,21 @@ public class Game {
 
     private Player player;
     private PropertyChangeSupport observable;
-
+    private GameState gs;
+    private static String trackerIp = null;
+    private static int trackerPort = 0;
     public Game(Player p, GameState gs) {
         player = p;
         GUI gui = new GUI(gs, player.name);
         observable = new PropertyChangeSupport(this);
         observable.addPropertyChangeListener(gui);
+        gs = gs;
     }
 
     public static void main(String[] args) {
 
-        String trackerIp = null;
-        int trackerPort = 0;
+//        String trackerIp = null;
+//        int trackerPort = 0;
         String playerName;
 
         if (args.length == 3) {
@@ -120,43 +124,51 @@ public class Game {
     private static void acquireAndListen(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N, GameState gs) {
         try {
             listenUserInput(stub, trackerStub, g, player, N);
-        } catch (RemoteException e) {
+        } catch (RemoteException | NullPointerException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
-            System.err.println("Primary Server Failed");
+            System.err.println("Primary Server Failed"+ g.gs.getSecondary());
             
             int primaryServerPort = 0;
-            
-            try {
-            	
-            	boolean primarySetted = false;
-            	
-            	while(!primarySetted){
-            		
-    				primaryServerPort = trackerStub.getPrimaryServerPort();
-            		
-                	System.out.println("the next primary is: "+ primaryServerPort);
-                	String ip = null;
-            		try (Socket socket = new Socket(ip, primaryServerPort)) {
-                        System.out.println("Sending CHECK_TYPE_PRIMARY msg to "+ primaryServerPort);
-                        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                        out.println(ListenerThread.CHECK_TYPE_PRIMARY);
-                        try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
-                            String resp = (String) ois.readObject();
-                            primarySetted = resp.equals(ListenerThread.IS_PRIMARY);
-                        }
-                    } catch (IOException  | ClassNotFoundException e1) {
-                        System.err.println("Exception while sending CHECK_TYPE_PRIMARY msg to "+ primaryServerPort + ": " + e1.getMessage());
+            primaryServerPort = g.gs.getSecondary().port;
+            boolean notConnected = true;
+            long startTime = System.currentTimeMillis();
+            long currentTime = System.currentTimeMillis();
+            while(notConnected && currentTime - startTime < 2000) {
+                currentTime = System.currentTimeMillis();
+                try {
+                    System.out.println("Port "+ primaryServerPort + " acts as primary server now.");
+                    stub = getStub(primaryServerPort);
+                    gs = (GameState) stub.getReadOnlyCopy();
+                    if(gs != null) {
+                        acquireAndListen(stub, trackerStub, g, player, N, gs);
+                        notConnected = false;
                     }
-        		}
-            	System.out.println("Port "+ primaryServerPort + " acts as primary server now.");
-            	
-         
-            	stub = getStub(primaryServerPort);
-                gs = (GameState) stub.getReadOnlyCopy();
-                acquireAndListen(stub, trackerStub, g, player, N, gs);
-            } catch (IOException | ClassNotFoundException ex) {
+                } catch (IOException | ClassNotFoundException | NullPointerException ex) {
 
+                }
             }
+            System.out.print("Time done" + (currentTime - startTime));
+
+            TrackerState tracker = null;
+            try {
+                tracker = (TrackerState) trackerStub.getReadOnlyCopy();
+            } catch (RemoteException e1) {
+                e1.printStackTrace();
+            }
+
+            List<Player> players = tracker.players;
+            for (Player play:players
+                 ) {
+                System.out.println("players" + play.name);
+            }
+            try {
+                stub = getStub(players);
+                System.out.println("Connecting to new server");
+                acquireAndListen(stub, trackerStub, g, player, N, gs);
+            } catch (ClassNotFoundException e1) {
+                e1.printStackTrace();
+            }
+
         }
     }
     private static void listenUserInput(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N) throws RemoteException{
@@ -199,6 +211,7 @@ public class Game {
     }
     private void updateGameState(IGameState stub) throws RemoteException {
         GameState gs = (GameState) stub.getReadOnlyCopy();
+        if (gs != null) this.gs = gs;
         observable.firePropertyChange("gameState", null, gs);
     }
 

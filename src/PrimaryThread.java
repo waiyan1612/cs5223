@@ -13,7 +13,6 @@ public class PrimaryThread extends Thread {
         this.trackerStub = trackerStub;
         // TODO: Currently the setting of next secondary server when primary server down not working.
     }
-    }
 
     public void run() {
         try {
