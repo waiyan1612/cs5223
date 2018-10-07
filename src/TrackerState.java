@@ -28,8 +28,9 @@ public class TrackerState implements ITrackerState, Serializable {
         lastPortUsed ++;
     }
 
-    public synchronized void removePlayer(Player p) {
+    public synchronized ITrackerState removePlayer(Player p) {
         players.remove(p);
+        return getReadOnlyCopy();
     }
 
     public ITrackerState getReadOnlyCopy() {

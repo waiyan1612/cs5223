@@ -1,5 +1,7 @@
 import java.io.IOException;
 import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -9,16 +11,24 @@ public class PrimaryThread extends Thread {
     private ITrackerState trackerStub;
 
     public PrimaryThread(IGameState primaryStub,  ITrackerState trackerStub) {
-        this.primaryStub = primaryStub;
-        this.trackerStub = trackerStub;
-        // TODO: Currently the setting of next secondary server when primary server down not working.
 
+        try {
+            this.primaryStub = primaryStub;
+            this.trackerStub = trackerStub;
+            this.primaryStub.setSecondary(null);
+            this.primaryStub.setSecondaryGameState(null);
+        } catch (RemoteException e) {
+            System.err.println("PrimaryThread Init Exception: " + e.getMessage());
+        }
+
+
+        // TODO: Currently the setting of next secondary server when primary server down not working.
     }
 
     public void run() {
         try {
             // this is fine since this is not a remote call
-            GameState gs = (GameState) primaryStub.getReadOnlyCopy();
+            GameState gs = (GameState) this.primaryStub.getReadOnlyCopy();
             Player primary = gs.getPrimary();
             Player secondary = gs.getSecondary();
             if(secondary != null) {
@@ -44,6 +54,7 @@ public class PrimaryThread extends Thread {
     private void sendRequestToNonPrimary(Player primary) throws RemoteException {
         TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
         List<Player> activePlayers = tracker.players;
+        Collections.reverse(tracker.players);
         Iterator<Player> iter = activePlayers.iterator();
         boolean assigned = false;
         while (iter.hasNext() && !assigned) {

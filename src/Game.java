@@ -71,7 +71,7 @@ public class Game {
         }
         IGameState stub = null;
         GameState gs = null;
-        ListenerThread listener;
+        ListenerThread listener = null;
         try {
             if (players.size() == 1) {
                 System.out.println("Primary Server");
@@ -81,18 +81,18 @@ public class Game {
                 // Creating GameState Stub and serving it via Listener Thread
                 stub = (IGameState) UnicastRemoteObject.exportObject(gameState, 0);
                 gs = (GameState) stub.initPlayerState(player);
-                listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.PRIMARY);
+                listener = new ListenerThread(player, stub, trackerStub, ListenerThread.PRIMARY);
                 listener.start();
             } else if (players.size() == 2) {
                 System.out.println("Backup Server");
                 stub = getStub(trackerStub, player);
-                gs = tryInitPlayerState(trackerStub, stub, player);
-                listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.SECONDARY);
+                gs = tryInitPlayerState(trackerStub, stub, player, 5);
+                listener = new ListenerThread(player, stub, trackerStub, ListenerThread.SECONDARY);
                 listener.start();
             } else {
                 stub = getStub(trackerStub, player);
-                gs = tryInitPlayerState(trackerStub, stub, player);
-                listener = new ListenerThread(player.port, stub, trackerStub, ListenerThread.NONE);
+                gs = tryInitPlayerState(trackerStub, stub, player, 5);
+                listener = new ListenerThread(player, stub, trackerStub, ListenerThread.NONE);
                 listener.start();
             }
         } catch (IOException e) {
@@ -109,54 +109,110 @@ public class Game {
         long start = System.currentTimeMillis();
         Game g = new Game(player, gs);
         System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
-        acquireAndListen(stub, trackerStub, g, player, N, gs);
+        acquireAndListen(listener, g, player, N);
 
     }
 
-    private static GameState tryInitPlayerState(ITrackerState trackerStub, IGameState stub, Player player){
-        if(stub == null) {
+    private static GameState tryInitPlayerState(ITrackerState trackerStub, IGameState stub, Player player, int level){
+        if(level == 0) {
             System.err.println("Unable to find a stub recursively.");
             return null;
         }
         try {
             return (GameState) stub.initPlayerState(player);
-        } catch (RemoteException e) {
+        } catch (RemoteException | NullPointerException e) {
             stub = getStub(trackerStub, player);
-            return tryInitPlayerState(trackerStub, stub, player);
+            return tryInitPlayerState(trackerStub, stub, player, level-1);
         }
     }
 
-    private static void acquireAndListen(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N, GameState gs) {
+    private static void acquireAndListen(ListenerThread listener, Game g, Player player, int N) {
+        IGameState stub = listener.getIGameState();
+        ITrackerState trackerStub = listener.getITrackerState();
         try {
             listenUserInput(stub, trackerStub, g, player, N);
         } catch (RemoteException | NullPointerException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
-            System.err.println("Primary Server Failed"+ g.gs.getSecondary());
-            
-            int primaryServerPort = 0;
-            primaryServerPort = g.gs.getSecondary().port;
-            boolean notConnected = true;
-            long startTime = System.currentTimeMillis();
-            long currentTime = System.currentTimeMillis();
-            while(notConnected && currentTime - startTime < 2000) {
-                currentTime = System.currentTimeMillis();
-                try {
-                    System.out.println("Port "+ primaryServerPort + " acts as primary server now.");
-                    stub = getStub(primaryServerPort);
-                    gs = (GameState) stub.getReadOnlyCopy();
-                    if(gs != null) {
-                        acquireAndListen(stub, trackerStub, g, player, N, gs);
-                        notConnected = false;
-                    }
-                } catch (IOException | NullPointerException ex) {
+//            Player secondary = g.gs.getSecondary();
 
+//            boolean notConnected = true;
+//            if(secondary != null) {
+//                int newPrimaryServerPort = secondary.port;
+//                System.out.println("Trying to get Game State from last known secondary: "+ secondary);
+//                while(notConnected) {
+//                    try {
+//                        stub = getStub(newPrimaryServerPort);
+//                        notConnected = false;
+//                    } catch (IOException e1) {
+//                        System.err.println("Failed to get Game State from last known secondary. Retrying ...");
+//                        try {
+//                            Thread.sleep(500);
+//
+//                        } catch (InterruptedException e2) {
+//                            System.err.println("Someone interrupted my sleep: " + e2.getMessage());
+//                        }
+//                    }
+//                }
+//            } else {
+//                stub = getStub(listener.getITrackerState(), player);
+//            }
+
+            try {
+                Player secondary = g.gs.getSecondary();
+                if(secondary != null) {
+                    stub = getStub(secondary.port);
+                    g.updateGameState(stub);
+                    System.out.println("Refreshed acquiredAndListen from secondary");
+                    acquireAndListen(listener, g, player, N);
+                }
+            } catch (IOException ee) {
+                try {
+                    stub = listener.getIGameState();
+                    g.updateGameState(stub);
+                    System.out.println("Refreshed acquiredAndListen from self");
+                    acquireAndListen(listener, g, player, N);
+                } catch (RemoteException e1) {
+                    try {
+                        stub = getStub(listener.getITrackerState(), player);
+                        GameState gs = (GameState) stub.getReadOnlyCopy();
+                        listener.setIGameState(gs);
+                        g.updateGameState(stub);
+                        System.out.println("Refreshed acquiredAndListen");
+                        acquireAndListen(listener, g, player, N);
+                    } catch (RemoteException e2) {
+                        System.out.println("Failed to refresh acquiredAndListen. Trying again: " + e.getMessage());
+                        acquireAndListen(listener, g, player, N);
+                    }
                 }
             }
-            System.out.print("Time done" + (currentTime - startTime));
 
-            stub = getStub(trackerStub, player);
-            System.out.println("Connecting to new server");
-            acquireAndListen(stub, trackerStub, g, player, N, gs);
+
+
+//            boolean notConnected = true;
+//            long startTime = System.currentTimeMillis();
+//            long currentTime = System.currentTimeMillis();
+//            while(notConnected && currentTime - startTime < 2000) {
+//                currentTime = System.currentTimeMillis();
+//                try {
+//                    System.out.println("Trying to get game state from "+ g.gs.getSecondary());
+//                    stub = getStub(primaryServerPort);
+//                    gs = (GameState) stub.getReadOnlyCopy();
+//                    if(gs != null) {
+//                        notConnected = false;
+//                    } else {
+//                        System.out.println("Trying to get game state from somewhere");
+//                        stub = getStub(trackerStub, player);
+//                        gs = (GameState) stub.getReadOnlyCopy();
+//                        notConnected = false;
+//                    }
+//                } catch (IOException | NullPointerException ex) {
+//
+//                }
+//            }
+//            listener.setIGameState(stub);
+//            System.out.println("Time done: " + (currentTime - startTime));
+//            System.out.println("Connecting to new server");
+//            acquireAndListen(listener, g, player, N);
         }
     }
 
@@ -212,28 +268,47 @@ public class Game {
     }
 
     private static IGameState getStub(ITrackerState trackerStub, Player currentPlayer) {
-        IGameState stub = null;
-        try {
-            TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
-            Iterator<Player> iter = tracker.players.iterator();
-            System.out.println(tracker.players);
-            while(stub == null || !iter.hasNext()) {
-                Player p = iter.next();
-                if(!p.equals(currentPlayer)) {
-                    try {
-                        stub = getStub(p.port);
-                    } catch (IOException e) {
-                        System.err.println("Failed to get stub from " + p + ": " + e.getMessage());
-                        //Doing this has some issues
-                        //System.err.println("Removing " + p + " from list of players.");
-                        //trackerStub.removePlayer(p);
+        IGameState stub;
+            int round = 4;
+            while (round > 0) {
+                try {
+                    TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
+                    Collections.shuffle(tracker.players);
+                    Iterator<Player> iter = tracker.players.iterator();
+                    boolean delete = false;
+                    while (iter.hasNext()) {
+                        Player p = iter.next();
+                        if (delete) {
+                            iter.remove();
+                        }
+                        if (!p.equals(currentPlayer)) {
+                            try {
+                                System.err.println("Trying to get stub from " + p);
+                                stub = getStub(p.port);
+                                if (stub != null) {
+                                    return stub;
+                                } else {
+                                    System.err.println("Why am i getting  null");
+                                }
+                            } catch (IOException e) {
+                                System.err.println("Failed to get stub from " + p + ": " + e.getMessage());
+                                if (round == 2) {
+                                    System.err.println("Removing " + p + " from list of players.");
+                                    trackerStub.removePlayer(p);
+                                    delete = true;
+                                } else {
+                                    delete = false;
+                                }
+                            }
+                        }
                     }
+                    round--;
+
+                } catch (RemoteException e) {
+                    e.printStackTrace();
                 }
             }
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
-        return stub;
+        return null;
     }
 
     public static IGameState getStub(int port) throws IOException {

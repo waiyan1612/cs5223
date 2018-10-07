@@ -19,13 +19,14 @@ public class GameState implements IGameState, Serializable  {
     }
 
     public GameState(int N, int K, Set<Integer> treasurePositions, Map<Player, PlayerState> playerStates,
-                     Player primary, Player secondary) {
+                     Player primary, Player secondary, IGameState secondaryStub) {
         this.N = N;
         this.K = K;
         this.treasurePositions = treasurePositions;
         this.playerStates = playerStates;
         this.primary = primary;
         this.secondary = secondary;
+        this.secondaryStub = secondaryStub;
     }
 
     public int getN() {
@@ -54,7 +55,7 @@ public class GameState implements IGameState, Serializable  {
     }
 
     public IGameState getReadOnlyCopy() {
-        return new GameState(N, K, treasurePositions, playerStates, primary, secondary);
+        return new GameState(N, K, treasurePositions, playerStates, primary, secondary, secondaryStub);
     }
 
     public synchronized void setPrimary(Player port) {
@@ -114,17 +115,18 @@ public class GameState implements IGameState, Serializable  {
         }
     }
 
-    public void removePlayer(Player p){
+    public synchronized void removePlayer(Player p){
         playerStates.remove(p);
         updateBackupCopy();
     }
-    
-    public void removePrimaryServer(Player p) {
+
+    public synchronized void updatePrimaryServer(Player p) {
         playerStates.remove(p);
         secondary = null;
+        primary = p;
     }
 
-    public void removeSecondaryServer(Player p) {
+    public synchronized void removeSecondaryServer(Player p) {
         playerStates.remove(p);
         secondary = null;
         // no need to updateBackupCopy
@@ -135,8 +137,7 @@ public class GameState implements IGameState, Serializable  {
             try {
                 secondaryStub.updateAll(treasurePositions, playerStates, primary, secondary);
             } catch (RemoteException e) {
-                System.err.println("Failed to update back up copy: " + e.getMessage());
-                e.printStackTrace();
+                System.err.println("Failed to update back up copy from " + primary + " to " + secondary + ": " +  e.getMessage());
             }
         }
     }
