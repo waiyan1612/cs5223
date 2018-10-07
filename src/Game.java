@@ -109,7 +109,7 @@ public class Game {
         long start = System.currentTimeMillis();
         Game g = new Game(player, gs);
         System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
-        acquireAndListen(stub, trackerStub, g, player, N, gs);
+        acquireAndListen(stub, trackerStub, g, player, N);
 
     }
 
@@ -126,37 +126,41 @@ public class Game {
         }
     }
 
-    private static void acquireAndListen(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N, GameState gs) {
+    private static void acquireAndListen(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N) {
         try {
             listenUserInput(stub, trackerStub, g, player, N);
         } catch (RemoteException | NullPointerException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
-            System.err.println("Primary Server Failed"+ g.gs.getSecondary());
-            
-            int primaryServerPort = 0;
-            primaryServerPort = g.gs.getSecondary().port;
-            boolean notConnected = true;
-            long startTime = System.currentTimeMillis();
-            long currentTime = System.currentTimeMillis();
-            while(notConnected && currentTime - startTime < 2000) {
-                currentTime = System.currentTimeMillis();
+            try {
+                System.out.println("Refreshing acquiredAndListen from secondary");
+                Player secondary = g.gs.getSecondary();
+                if(secondary != null) {
+                    stub = getStub(secondary.port);
+                    g.updateGameState(stub);
+                    System.out.println("Refreshed acquiredAndListen from secondary");
+                    acquireAndListen(stub, trackerStub, g, player, N);
+                }
+            } catch (IOException | NullPointerException e1) {
                 try {
-                    System.out.println("Port "+ primaryServerPort + " acts as primary server now.");
-                    stub = getStub(primaryServerPort);
-                    gs = (GameState) stub.getReadOnlyCopy();
-                    if(gs != null) {
-                        acquireAndListen(stub, trackerStub, g, player, N, gs);
-                        notConnected = false;
+                    System.out.println("Refreshing acquiredAndListen from self");
+                    g.updateGameState(stub);
+                    System.out.println("Refreshed acquiredAndListen from self");
+                    acquireAndListen(stub, trackerStub, g, player, N);
+                } catch (RemoteException | NullPointerException e2) {
+                    try {
+                        System.out.println("Refreshing acquiredAndListen");
+                        stub = getStub(trackerStub, player);
+                        //GameState gs = (GameState) stub.getReadOnlyCopy();
+                        //listener.setIGameState(gs);
+                        g.updateGameState(stub);
+                        System.out.println("Refreshed acquiredAndListen");
+                        acquireAndListen(stub, trackerStub, g, player, N);
+                    } catch (RemoteException | NullPointerException e3) {
+                        System.out.println("Failed to refresh acquiredAndListen. Trying again: " + e.getMessage());
+                        acquireAndListen(stub, trackerStub, g, player, N);
                     }
-                } catch (IOException | NullPointerException ex) {
-
                 }
             }
-            System.out.print("Time done" + (currentTime - startTime));
-
-            stub = getStub(trackerStub, player);
-            System.out.println("Connecting to new server");
-            acquireAndListen(stub, trackerStub, g, player, N, gs);
         }
     }
 
@@ -217,11 +221,14 @@ public class Game {
             TrackerState tracker = (TrackerState) trackerStub.getReadOnlyCopy();
             Iterator<Player> iter = tracker.players.iterator();
             System.out.println(tracker.players);
-            while(stub == null || !iter.hasNext()) {
+            while(iter.hasNext()) {
                 Player p = iter.next();
                 if(!p.equals(currentPlayer)) {
                     try {
                         stub = getStub(p.port);
+                        if(stub != null) {
+                            return stub;
+                        }
                     } catch (IOException e) {
                         System.err.println("Failed to get stub from " + p + ": " + e.getMessage());
                         //Doing this has some issues
