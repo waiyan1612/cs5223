@@ -30,7 +30,7 @@ public class SecondaryThread extends Thread {
                 ITrackerState trackerStub = listener.getITrackerState();
                 trackerStub.removePlayer(primary);
                 System.out.println("A");
-                secondaryStub.updatePrimaryServer(primary);
+                secondaryStub.updatePrimaryServer(secondary);
                 System.out.println("B");
                 listener.setupPrimaryThread(secondaryStub, trackerStub);
                 System.out.println("Set " + secondary + " as primary server");
