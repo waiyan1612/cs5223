@@ -86,12 +86,12 @@ public class Game {
             } else if (players.size() == 2) {
                 System.out.println("Backup Server");
                 stub = getStub(trackerStub, player);
-                gs = tryInitPlayerState(trackerStub, stub, player, 5);
+                gs = tryInitPlayerState(trackerStub, stub, player, 10);
                 listener = new ListenerThread(player, stub, trackerStub, ListenerThread.SECONDARY);
                 listener.start();
             } else {
                 stub = getStub(trackerStub, player);
-                gs = tryInitPlayerState(trackerStub, stub, player, 5);
+                gs = tryInitPlayerState(trackerStub, stub, player, 10);
                 listener = new ListenerThread(player, stub, trackerStub, ListenerThread.NONE);
                 listener.start();
             }
@@ -130,9 +130,9 @@ public class Game {
         ITrackerState trackerStub = listener.getITrackerState();
         try {
             listenUserInput(stub, trackerStub, g, prevUserInput);
-        } catch (GameException | NullPointerException e) {
+        } catch (GameException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
-            String prevInput = e instanceof GameException ? ((GameException) e).userInput : null;
+            String prevInput = e.userInput;
             try {
                 Player secondary = g.gs.getSecondary();
                 if(secondary != null) {
@@ -155,46 +155,17 @@ public class Game {
                         g.updateGameState(stub);
                         System.out.println("Refreshed acquiredAndListen");
                         acquireAndListen(listener, g, prevInput);
-                    } catch (RemoteException e2) {
+                    } catch (RemoteException | NullPointerException e2) {
                         System.out.println("Failed to refresh acquiredAndListen. Trying again: " + e.getMessage());
                         acquireAndListen(listener, g, prevInput);
                     }
                 }
             }
-
-
-
-//            boolean notConnected = true;
-//            long startTime = System.currentTimeMillis();
-//            long currentTime = System.currentTimeMillis();
-//            while(notConnected && currentTime - startTime < 2000) {
-//                currentTime = System.currentTimeMillis();
-//                try {
-//                    System.out.println("Trying to get game state from "+ g.gs.getSecondary());
-//                    stub = getStub(primaryServerPort);
-//                    gs = (GameState) stub.getReadOnlyCopy();
-//                    if(gs != null) {
-//                        notConnected = false;
-//                    } else {
-//                        System.out.println("Trying to get game state from somewhere");
-//                        stub = getStub(trackerStub, player);
-//                        gs = (GameState) stub.getReadOnlyCopy();
-//                        notConnected = false;
-//                    }
-//                } catch (IOException | NullPointerException ex) {
-//
-//                }
-//            }
-//            listener.setIGameState(stub);
-//            System.out.println("Time done: " + (currentTime - startTime));
-//            System.out.println("Connecting to new server");
-//            acquireAndListen(listener, g, player, N);
         }
     }
 
     private static void listenUserInput(IGameState stub, ITrackerState trackerStub, Game g, String prevInput) throws GameException {
         Scanner input = new Scanner(System.in);
-        //g.updateGameState(stub);
         while (prevInput != null || input.hasNext()) {
             String in;
             if(prevInput != null) {
@@ -234,15 +205,15 @@ public class Game {
                         System.out.println("========================  Instructions ======================== ");
                         System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
                 }
-            } catch(RemoteException e) {
+            } catch(RemoteException | NullPointerException e) {
                 throw new GameException(in, e);
             }
         }
     }
 
-    public static class GameException extends RemoteException {
+    public static class GameException extends Exception {
         public String userInput;
-        public GameException(String input, RemoteException e) {
+        public GameException(String input, Exception e) {
             super(e.getMessage(), e);
             this.userInput = input;
         }
@@ -250,7 +221,6 @@ public class Game {
 
     private void updateGameState(IGameState stub) throws RemoteException {
         GameState gs = (GameState) stub.getReadOnlyCopy();
-        System.out.println(gs);
         if (gs != null) this.gs = gs;
         observable.firePropertyChange("gameState", null, gs);
     }

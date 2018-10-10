@@ -15,7 +15,9 @@ public class GUI extends JFrame implements PropertyChangeListener {
     private static final int MAX_ROWS = 20;
 
     private void updateInfoLabel(){
-        infoLabels[0].setText(" PRIMARY: " + gameState.getPrimary().name);
+        if(gameState.getPrimary() != null) {
+            infoLabels[0].setText(" PRIMARY: " + gameState.getPrimary().name);
+        }
         if(gameState.getSecondary() != null) {
             infoLabels[1].setText(" SECONDARY: " + gameState.getSecondary().name);
         } else {

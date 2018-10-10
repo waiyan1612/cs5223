@@ -29,16 +29,13 @@ public class SecondaryThread extends Thread {
                 Player secondary = gs.getSecondary();
                 ITrackerState trackerStub = listener.getITrackerState();
                 trackerStub.removePlayer(primary);
-                System.out.println("A");
                 secondaryStub.updatePrimaryServer(secondary);
-                System.out.println("B");
                 listener.setupPrimaryThread(secondaryStub, trackerStub);
                 System.out.println("Set " + secondary + " as primary server");
             } catch (IOException e2) {
                 System.err.println("SecondaryThread: " + e2.getMessage());
                 e.printStackTrace();
             }
-            System.out.println("Z");
         }
 
         //TODO: Ping other nodes and remove them if they don't respond

@@ -124,11 +124,18 @@ public class ListenerThread extends Thread {
                 e.printStackTrace();
             }
         }
-        gameState.setSecondary(player);
-        GameState gs = (GameState) gameState.getReadOnlyCopy();
-        IGameState secondaryStub = (IGameState) UnicastRemoteObject.exportObject(gs, 0);
-        gameState.setSecondaryGameState(secondaryStub);
-        setupSecondaryThread(secondaryStub);
+        try {
+            gameState.setSecondary(player);
+            GameState gs = (GameState) gameState.getReadOnlyCopy();
+            IGameState secondaryStub = (IGameState) UnicastRemoteObject.exportObject(gs, 0);
+            gameState.setSecondaryGameState(secondaryStub);
+            setupSecondaryThread(secondaryStub);
+        } catch (RemoteException e) {
+            System.err.println("WE NEED TO FIX THIS!!!!");
+            throw e;
+        }
+
+
         System.out.println("Player " + player + " is now secondary server");
     }
 
