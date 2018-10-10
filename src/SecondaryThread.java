@@ -8,12 +8,12 @@ import java.util.concurrent.Executors;
 
 public class SecondaryThread extends Thread {
 
-    private ListenerThread listener;
-    private IGameState secondaryStub;
+    private static ListenerThread listener;
+    private static IGameState secondaryStub;
 
-    public SecondaryThread(ListenerThread listener, IGameState secondaryStub) {
-        this.listener = listener;
-        this.secondaryStub = secondaryStub;
+    public SecondaryThread(ListenerThread listenerThread, IGameState gs) {
+        listener = listenerThread;
+        secondaryStub = gs;
     }
 
     public void run() {
@@ -42,29 +42,29 @@ public class SecondaryThread extends Thread {
         }
 
         //TODO: Ping other nodes and remove them if they don't respond
-//        ExecutorService executorService = Executors.newSingleThreadExecutor();
-//        final GameState gs2 = gs;
-//        executorService.submit(() -> {
-//            Set<Player> playerSet = gs2.getPlayerStates().keySet();
-//            List<Player> playerList = new ArrayList<>(playerSet);
-//            for (int i=0; i<playerSet.size(); i++){
-//                int primaryPort = gs2.getPrimary().port;
-//                int secondaryPort = gs2.getSecondary().port;
-//                Player player = playerList.get(i);
-//                if (player.port != primaryPort && player.port != secondaryPort){
-//                    System.out.println("PINGING " + player);
-//                    boolean success = Game.ping(player.port);
-//                    if (!success) {
-//                        System.out.println("PING failed. Player at port " + player.port +" has crashed!");
-//                        System.out.println("Remove the player from game.");
-//                        try {
-//                            this.listener.removePlayer(player);
-//                        } catch (RemoteException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }
-//            }
-//        });
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        final GameState gs2 = gs;
+        executorService.submit(() -> {
+            Set<Player> playerSet = gs2.getPlayerStates().keySet();
+            List<Player> playerList = new ArrayList<>(playerSet);
+            for (int i=0; i<playerSet.size(); i++){
+                int primaryPort = gs2.getPrimary().port;
+                int secondaryPort = gs2.getSecondary().port;
+                Player player = playerList.get(i);
+                if (player.port != primaryPort && player.port != secondaryPort){
+                    System.out.println("PINGING " + player);
+                    boolean success = Game.ping(player.port);
+                    if (!success) {
+                        System.out.println("PING failed. Player at port " + player.port +" has crashed!");
+                        System.out.println("Remove the player from game.");
+                        try {
+                            listener.removePlayer(player);
+                        } catch (RemoteException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        });
     }
 }

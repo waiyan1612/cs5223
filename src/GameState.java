@@ -121,7 +121,7 @@ public class GameState implements IGameState, Serializable  {
     }
 
     public synchronized void updatePrimaryServer(Player p) {
-        playerStates.remove(p);
+        playerStates.remove(primary);
         secondary = null;
         primary = p;
     }
@@ -133,7 +133,7 @@ public class GameState implements IGameState, Serializable  {
     }
 
     public synchronized void updateBackupCopy() {
-        if(secondaryStub != null) {
+        if(secondary != null && secondaryStub != null) {
             try {
                 secondaryStub.updateAll(treasurePositions, playerStates, primary, secondary);
             } catch (RemoteException e) {

@@ -7,16 +7,16 @@ import java.util.List;
 
 public class PrimaryThread extends Thread {
 
-    private IGameState primaryStub;
-    private ITrackerState trackerStub;
+    private static IGameState primaryStub;
+    private static ITrackerState trackerStub;
 
-    public PrimaryThread(IGameState primaryStub,  ITrackerState trackerStub) {
+    public PrimaryThread(IGameState ps,  ITrackerState ts) {
 
         try {
-            this.primaryStub = primaryStub;
-            this.trackerStub = trackerStub;
-            this.primaryStub.setSecondary(null);
-            this.primaryStub.setSecondaryGameState(null);
+            primaryStub = ps;
+            trackerStub = ts;
+            primaryStub.setSecondary(null);
+            primaryStub.setSecondaryGameState(null);
         } catch (RemoteException e) {
             System.err.println("PrimaryThread Init Exception: " + e.getMessage());
         }
@@ -28,7 +28,7 @@ public class PrimaryThread extends Thread {
     public void run() {
         try {
             // this is fine since this is not a remote call
-            GameState gs = (GameState) this.primaryStub.getReadOnlyCopy();
+            GameState gs = (GameState) primaryStub.getReadOnlyCopy();
             Player primary = gs.getPrimary();
             Player secondary = gs.getSecondary();
             if(secondary != null) {

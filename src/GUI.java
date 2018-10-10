@@ -12,16 +12,22 @@ public class GUI extends JFrame implements PropertyChangeListener {
     private JLabel[] infoLabels;
     private GameState gameState;
     private static final int NUM_FIXED_TOP_ROWS = 2;
+    private static final int MAX_ROWS = 20;
 
     private void updateInfoLabel(){
         infoLabels[0].setText(" PRIMARY: " + gameState.getPrimary().name);
         if(gameState.getSecondary() != null) {
             infoLabels[1].setText(" SECONDARY: " + gameState.getSecondary().name);
+        } else {
+            infoLabels[1].setText("");
         }
         infoLabels[2].setText("==========");
         int i = NUM_FIXED_TOP_ROWS;
         for (Map.Entry<Player, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
             infoLabels[++i].setText(entry.getKey().name + " : " + entry.getValue().score);
+        }
+        while(i < MAX_ROWS - 1) {
+            infoLabels[++i].setText("");
         }
     }
 
@@ -62,7 +68,7 @@ public class GUI extends JFrame implements PropertyChangeListener {
         Panel legend = new Panel();
         legend.setLayout(new BoxLayout(legend, BoxLayout.PAGE_AXIS));
         //int maxPossibleRows = rows * cols + NUM_FIXED_TOP_ROWS + 1;
-        int maxPossibleRows = 10; // for performance reasons
+        int maxPossibleRows = MAX_ROWS; // for performance reasons
         infoLabels = new JLabel[maxPossibleRows];
         for(int i=0; i<maxPossibleRows; i++) {
             infoLabels[i] = new JLabel();

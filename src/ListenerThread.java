@@ -27,8 +27,8 @@ public class ListenerThread extends Thread {
 
     private Player player;
     private ServerSocket socket;
-    private IGameState gameState;
-    private ITrackerState trackerState;
+    private static IGameState gameState;
+    private static ITrackerState trackerState;
     private ScheduledExecutorService executorService;
     private int type;
 
@@ -41,7 +41,7 @@ public class ListenerThread extends Thread {
     }
 
     public void setIGameState(IGameState gs){
-        this.gameState = gs;
+        gameState = gs;
     }
     
     public void removePlayer(Player player) throws RemoteException{
@@ -51,8 +51,8 @@ public class ListenerThread extends Thread {
 
     public ListenerThread(Player player, IGameState primaryGS, ITrackerState ts, int type) {
         this.player = player;
-        this.gameState = primaryGS;
-        this.trackerState = ts;
+        gameState = primaryGS;
+        trackerState = ts;
         this.executorService = Executors.newSingleThreadScheduledExecutor();
         this.type = type;
 
@@ -68,20 +68,20 @@ public class ListenerThread extends Thread {
     }
 
     public void setupPrimaryThread(IGameState primaryGS){
-        this.gameState = primaryGS;
+        gameState = primaryGS;
         PrimaryThread primaryThread = new PrimaryThread(primaryGS, trackerState);
         type = PRIMARY;
         executorService.scheduleAtFixedRate(primaryThread, 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
     }
     
-    public void setupPrimaryThread(IGameState secondaryStub, ITrackerState trackerState) throws RemoteException{
+    public void setupPrimaryThread(IGameState secondaryStub, ITrackerState ts) throws RemoteException{
     	type = PRIMARY;
         GameState gs = (GameState) secondaryStub.getReadOnlyCopy();
         IGameState primaryStub = (IGameState) UnicastRemoteObject.exportObject(gs, 0);
 
-        this.gameState = primaryStub;
-        this.gameState.setSecondaryGameState(primaryStub);
-        this.trackerState = trackerState;
+        gameState = primaryStub;
+        gameState.setSecondaryGameState(primaryStub);
+        trackerState = ts;
        
         PrimaryThread primaryThread = new PrimaryThread(primaryStub, trackerState);
         executorService.shutdown();
@@ -119,7 +119,7 @@ public class ListenerThread extends Thread {
         System.out.println("Received request to become secondary server from " + from);
         if (from != -1) {
             try {
-                this.gameState = Game.getStub(from);
+                gameState = Game.getStub(from);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -137,15 +137,11 @@ public class ListenerThread extends Thread {
         private ListenerThread parent;
         private BufferedReader in;
         private ObjectOutputStream out;
-        private IGameState gameState;
-        private int type;
 
         public ClientHandlerThread(ListenerThread parent, BufferedReader in, ObjectOutputStream out) {
             this.parent = parent;
             this.in = in;
             this.out = out;
-            this.gameState = parent.gameState;
-            this.type = parent.type;
         }
 
         public void run() {

@@ -109,8 +109,7 @@ public class Game {
         long start = System.currentTimeMillis();
         Game g = new Game(player, gs);
         System.out.println("Time taken should be less than 3 seconds: " + (System.currentTimeMillis() - start));
-        acquireAndListen(listener, g, player, N);
-
+        acquireAndListen(listener, g, null);
     }
 
     private static GameState tryInitPlayerState(ITrackerState trackerStub, IGameState stub, Player player, int level){
@@ -126,62 +125,39 @@ public class Game {
         }
     }
 
-    private static void acquireAndListen(ListenerThread listener, Game g, Player player, int N) {
+    private static void acquireAndListen(ListenerThread listener, Game g, String prevUserInput) {
         IGameState stub = listener.getIGameState();
         ITrackerState trackerStub = listener.getITrackerState();
         try {
-            listenUserInput(stub, trackerStub, g, player, N);
-        } catch (RemoteException | NullPointerException e) {
+            listenUserInput(stub, trackerStub, g, prevUserInput);
+        } catch (GameException | NullPointerException e) {
             System.err.println("Failed to fetch GameState: " + e.getMessage());
-//            Player secondary = g.gs.getSecondary();
-
-//            boolean notConnected = true;
-//            if(secondary != null) {
-//                int newPrimaryServerPort = secondary.port;
-//                System.out.println("Trying to get Game State from last known secondary: "+ secondary);
-//                while(notConnected) {
-//                    try {
-//                        stub = getStub(newPrimaryServerPort);
-//                        notConnected = false;
-//                    } catch (IOException e1) {
-//                        System.err.println("Failed to get Game State from last known secondary. Retrying ...");
-//                        try {
-//                            Thread.sleep(500);
-//
-//                        } catch (InterruptedException e2) {
-//                            System.err.println("Someone interrupted my sleep: " + e2.getMessage());
-//                        }
-//                    }
-//                }
-//            } else {
-//                stub = getStub(listener.getITrackerState(), player);
-//            }
-
+            String prevInput = e instanceof GameException ? ((GameException) e).userInput : null;
             try {
                 Player secondary = g.gs.getSecondary();
                 if(secondary != null) {
                     stub = getStub(secondary.port);
                     g.updateGameState(stub);
                     System.out.println("Refreshed acquiredAndListen from secondary");
-                    acquireAndListen(listener, g, player, N);
+                    acquireAndListen(listener, g, prevInput);
                 }
             } catch (IOException ee) {
                 try {
                     stub = listener.getIGameState();
                     g.updateGameState(stub);
                     System.out.println("Refreshed acquiredAndListen from self");
-                    acquireAndListen(listener, g, player, N);
+                    acquireAndListen(listener, g, prevInput);
                 } catch (RemoteException e1) {
                     try {
-                        stub = getStub(listener.getITrackerState(), player);
+                        stub = getStub(listener.getITrackerState(), g.player);
                         GameState gs = (GameState) stub.getReadOnlyCopy();
                         listener.setIGameState(gs);
                         g.updateGameState(stub);
                         System.out.println("Refreshed acquiredAndListen");
-                        acquireAndListen(listener, g, player, N);
+                        acquireAndListen(listener, g, prevInput);
                     } catch (RemoteException e2) {
                         System.out.println("Failed to refresh acquiredAndListen. Trying again: " + e.getMessage());
-                        acquireAndListen(listener, g, player, N);
+                        acquireAndListen(listener, g, prevInput);
                     }
                 }
             }
@@ -216,47 +192,65 @@ public class Game {
         }
     }
 
-    private static void listenUserInput(IGameState stub, ITrackerState trackerStub, Game g, Player player, int N) throws RemoteException{
+    private static void listenUserInput(IGameState stub, ITrackerState trackerStub, Game g, String prevInput) throws GameException {
         Scanner input = new Scanner(System.in);
-        g.updateGameState(stub);
-        while (input.hasNext()) {
-            String in = input.nextLine();
-            switch (in) {
-                case "0":
-                    g.updateGameState(stub);
-                    break;
-                case "1":
-                    stub.move(player, -1);
-                    g.updateGameState(stub);
-                    break;
-                case "2":
-                    stub.move(player, N);
-                    g.updateGameState(stub);
-                    break;
-                case "3":
-                    stub.move(player, 1);
-                    g.updateGameState(stub);
-                    break;
-                case "4":
-                    stub.move(player, -N);
-                    g.updateGameState(stub);
-                    break;
-                case "9":
-                    stub.removePlayer(g.player);
-                    trackerStub.removePlayer(g.player);
-                    System.exit(0);
-                    break;
-                default:
-                    System.out.println("Invalid Input!");
-                    System.out.println("========================  Instructions ======================== ");
-                    System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+        //g.updateGameState(stub);
+        while (prevInput != null || input.hasNext()) {
+            String in;
+            if(prevInput != null) {
+                in = prevInput;
+                prevInput = null;
+            } else {
+                in = input.nextLine();
+            }
+            try {
+                switch (in) {
+                    case "0":
+                        g.updateGameState(stub);
+                        break;
+                    case "1":
+                        stub.move(g.player, -1);
+                        g.updateGameState(stub);
+                        break;
+                    case "2":
+                        stub.move(g.player, g.gs.N);
+                        g.updateGameState(stub);
+                        break;
+                    case "3":
+                        stub.move(g.player, 1);
+                        g.updateGameState(stub);
+                        break;
+                    case "4":
+                        stub.move(g.player, -g.gs.N);
+                        g.updateGameState(stub);
+                        break;
+                    case "9":
+                        stub.removePlayer(g.player);
+                        trackerStub.removePlayer(g.player);
+                        System.exit(0);
+                        break;
+                    default:
+                        System.out.println("Invalid Input!");
+                        System.out.println("========================  Instructions ======================== ");
+                        System.out.println("                                                     4  \n0 to refresh, 9 to exit. Directional controls are: 1   3\n                                                     2  ");
+                }
+            } catch(RemoteException e) {
+                throw new GameException(in, e);
             }
         }
+    }
 
+    public static class GameException extends RemoteException {
+        public String userInput;
+        public GameException(String input, RemoteException e) {
+            super(e.getMessage(), e);
+            this.userInput = input;
+        }
     }
 
     private void updateGameState(IGameState stub) throws RemoteException {
         GameState gs = (GameState) stub.getReadOnlyCopy();
+        System.out.println(gs);
         if (gs != null) this.gs = gs;
         observable.firePropertyChange("gameState", null, gs);
     }
