@@ -58,13 +58,14 @@ public class GameState implements IGameState, Serializable  {
         return new GameState(N, K, treasurePositions, playerStates, primary, secondary, secondaryStub);
     }
 
-    public synchronized void setPrimary(Player port) {
-        primary = port;
+    public synchronized void setPrimary(Player p) {
+        primary = p;
         updateBackupCopy();
     }
 
-    public synchronized void setSecondary(Player port) {
-        secondary = port;
+    public synchronized IGameState setSecondary(Player p) {
+        secondary = p;
+        return getReadOnlyCopy();
     }
 
     public synchronized void setSecondaryGameState(IGameState stub){
