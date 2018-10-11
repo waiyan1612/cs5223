@@ -153,7 +153,7 @@ public class Game {
                     try {
                         stub = getStub(listener.getITrackerState(), g.player);
                         GameState gs = (GameState) stub.getReadOnlyCopy();
-                        listener.setIGameState(gs);
+                        listener.setIGameState(stub);
                         g.updateGameState(stub);
                         System.out.println("Refreshed acquiredAndListen");
                         acquireAndListen(listener, g, prevInput);

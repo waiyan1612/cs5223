@@ -40,13 +40,14 @@ public class GUI extends JFrame implements PropertyChangeListener {
             for(int j=0; j<cols; j++) {
                 int pos = i*rows + j;
                 Color backgroundColor = Color.white;
-                StringBuilder cell = new StringBuilder();
+                String val = "";
                 if(gameState.getTreasurePositions().contains(pos)) {
                     backgroundColor = Color.yellow;
+                    val = "*";
                 }
                 for (Map.Entry<Player, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
                     if(entry.getValue().position == pos) {
-                    	cell.append(entry.getKey().name);
+                    	val = entry.getKey().name;
                         if(entry.getKey().name.equals(playerName)) {
                         	backgroundColor = Color.green;
                         }
@@ -54,7 +55,7 @@ public class GUI extends JFrame implements PropertyChangeListener {
                         break;
                     }
                 }
-            	mapGrids[i][j].setText(cell.toString());
+            	mapGrids[i][j].setText(val);
                 mapGrids[i][j].setBackground(backgroundColor);
             }
         }

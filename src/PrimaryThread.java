@@ -1,6 +1,5 @@
 import java.io.IOException;
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -20,9 +19,6 @@ public class PrimaryThread extends Thread {
         } catch (RemoteException e) {
             System.err.println("PrimaryThread Init Exception: " + e.getMessage());
         }
-
-
-        // TODO: Currently the setting of next secondary server when primary server down not working.
     }
 
     public void run() {
