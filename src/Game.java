@@ -140,6 +140,8 @@ public class Game {
                     g.updateGameState(stub);
                     System.out.println("Refreshed acquiredAndListen from secondary");
                     acquireAndListen(listener, g, prevInput);
+                } else {
+                    throw new IOException("Secondary is null in local GameState");
                 }
             } catch (IOException ee) {
                 try {

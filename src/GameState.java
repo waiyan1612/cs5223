@@ -124,7 +124,6 @@ public class GameState implements IGameState, Serializable  {
     public synchronized void updatePrimaryServer(Player p) {
         playerStates.remove(primary);
         secondary = null;
-        secondaryStub = null;
         primary = p;
     }
 
