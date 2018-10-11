@@ -108,6 +108,11 @@ public class ListenerThread extends Thread {
                 ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
                 Thread t = new ClientHandlerThread(this, in, out);
                 t.start();
+                try {
+                    sleep(100);
+                } catch(Exception e) {
+
+                }
             }
         } catch (IOException e) {
             System.err.println("ListenerThread: " + e.getMessage());
@@ -154,6 +159,11 @@ public class ListenerThread extends Thread {
         public void run() {
             try {
                 while (true) {
+                    try {
+                        sleep(100);
+                    } catch(Exception e) {
+
+                    }
                     String input = in.readLine();
                     if (input != null) {
                         switch(input) {
