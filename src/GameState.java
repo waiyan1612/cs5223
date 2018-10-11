@@ -124,12 +124,14 @@ public class GameState implements IGameState, Serializable  {
     public synchronized void updatePrimaryServer(Player p) {
         playerStates.remove(primary);
         secondary = null;
+        secondaryStub = null;
         primary = p;
     }
 
     public synchronized void removeSecondaryServer(Player p) {
         playerStates.remove(p);
         secondary = null;
+        secondaryStub = null;
         // no need to updateBackupCopy
     }
 
