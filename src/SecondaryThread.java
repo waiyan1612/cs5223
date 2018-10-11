@@ -52,8 +52,7 @@ public class SecondaryThread extends Thread {
                     System.out.println("PINGING " + player);
                     boolean success = Game.ping(player.port);
                     if (!success) {
-                        System.out.println("PING failed. Player at port " + player.port +" has crashed!");
-                        System.out.println("Remove the player from game.");
+                        System.out.println("PING failed. " + player +" has crashed! Removing the player from the game");
                         try {
                             listener.removePlayer(player);
                         } catch (RemoteException e) {

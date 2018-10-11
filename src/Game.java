@@ -254,7 +254,7 @@ public class Game {
                                 if (stub != null) {
                                     return stub;
                                 } else {
-                                    System.err.println("Why am i getting  null");
+                                    System.err.println("Why am i getting null");
                                 }
                             } catch (IOException e) {
                                 System.err.println("Failed to get stub from " + p + ": " + e.getMessage());

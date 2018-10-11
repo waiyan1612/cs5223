@@ -48,9 +48,7 @@ public class GUI extends JFrame implements PropertyChangeListener {
                 for (Map.Entry<Player, GameState.PlayerState> entry : gameState.getPlayerStates().entrySet()) {
                     if(entry.getValue().position == pos) {
                     	val = entry.getKey().name;
-                        if(entry.getKey().name.equals(playerName)) {
-                        	backgroundColor = Color.green;
-                        }
+                        backgroundColor = entry.getKey().name.equals(playerName) ? Color.green : Color.white;
                         // can break because we cannot have two players in the same cell
                         break;
                     }
